@@ -1,0 +1,60 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import Login from "./pages/Login.jsx";
+import Pdv from "./pages/Pdv.jsx";
+import Cash from "./pages/Cash.jsx";
+import Inventory from "./pages/Inventory.jsx";
+import Products from "./pages/Products.jsx";
+import Categories from "./pages/Categories.jsx";
+import Orders from "./pages/Orders.jsx";
+import Conversations from "./pages/Conversations.jsx";
+import TenantSettings from "./pages/TenantSettings.jsx";
+import NoPermission from "./pages/NoPermission.jsx";
+import Layout from "./components/Layout.jsx";
+import { ToastProvider } from "./components/ui/Toast.jsx";
+import { getSession } from "./lib/session";
+
+function AuthGuard({ children }) {
+  const s = getSession();
+  if (!s?.token) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RoleGuard({ roles, children }) {
+  const s = getSession();
+  const role = s?.user?.role || "";
+  if (!roles || roles.length === 0) return children;
+  if (!roles.includes(role)) return <Navigate to="/no-permission" replace />;
+  return children;
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/no-permission" element={<NoPermission />} />
+          <Route
+            path="/"
+            element={
+              <AuthGuard>
+                <Layout />
+              </AuthGuard>
+            }
+          >
+            <Route index element={<Navigate to="/pdv" replace />} />
+            <Route path="/pdv" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Pdv /></RoleGuard>} />
+            <Route path="/cash" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Cash /></RoleGuard>} />
+            <Route path="/inventory" element={<RoleGuard roles={["ADMIN","MANAGER"]}><Inventory /></RoleGuard>} />
+            <Route path="/products" element={<RoleGuard roles={["ADMIN","MANAGER"]}><Products /></RoleGuard>} />
+            <Route path="/categories" element={<RoleGuard roles={["ADMIN","MANAGER"]}><Categories /></RoleGuard>} />
+            <Route path="/orders" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Orders /></RoleGuard>} />
+            <Route path="/conversations" element={<RoleGuard roles={["ADMIN","MANAGER","ATTENDANT"]}><Conversations /></RoleGuard>} />
+            <Route path="/settings/tenant" element={<RoleGuard roles={["ADMIN","MANAGER"]}><TenantSettings /></RoleGuard>} />
+          </Route>
+          <Route path="*" element={<Navigate to="/pdv" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
+  );
+}

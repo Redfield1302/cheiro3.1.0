@@ -1,0 +1,12 @@
+{
+  "name": "cheio-gestor",
+  "private": true,
+  "version": "3.1.0",
+  "workspaces": ["api", "front-erp-pdv", "front-cardapio"],
+  "scripts": {
+    "i": "npm install",
+    "dev:api": "npm -w api run dev",
+    "dev:erp": "npm -w front-erp-pdv run dev",
+    "dev:menu": "npm -w front-cardapio run dev"
+  }
+}

@@ -1,0 +1,497 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// ENUMS
+//
+enum OrderStatus {
+  OPEN
+  CONFIRMED
+  PREPARING
+  READY
+  DISPATCHED
+  DELIVERED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT
+  DEBIT
+  MEAL_VOUCHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELED
+  REFUNDED
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  DELIVERED
+  CANCELED
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum CashMovementType {
+  INCOME
+  EXPENSE
+  SUPPLY
+  WITHDRAW
+}
+
+enum MessageSender {
+  CUSTOMER
+  BOT
+  HUMAN
+}
+
+// Para cardápio: complementos/sabores/remoções
+enum ModifierGroupType {
+  ADD     // extras pagos (borda, adicional, bebida extra)
+  REMOVE  // remover ingrediente (sem custo)
+  FLAVOR  // sabores (pizza meio a meio etc.)
+}
+
+//
+// CORE (MULTI-TENANT)
+//
+model Tenant {
+  id        String   @id @default(uuid())
+  slug      String   @unique // usado no cardápio digital: /t/:slug
+  segment   String
+  name      String
+  logoUrl   String?
+  rulesJson Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  customers      Customer[]
+  addresses      Address[]
+  categories     ProductCategory[]
+  products       Product[]
+  orders         Order[]
+  cashRegisters  CashRegister[]
+  inventoryItems InventoryItem[]
+  conversations  Conversation[]
+   productModifierGroups  ProductModifierGroup[]
+  productModifierOptions ProductModifierOption[]
+
+}
+
+model User {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name     String
+  email    String  @unique
+  password String
+  role     String
+  active   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cashRegisters CashRegister[]
+}
+
+model Customer {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name     String
+  phone    String?
+  document String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses     Address[]
+  orders        Order[]
+  conversations Conversation[]
+
+  @@unique([tenantId, phone])
+}
+
+model Address {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  street       String
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String
+  state        String
+  postalCode   String?
+  reference    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+//
+// PRODUCTS
+// (Recomendado: categoria normalizada; mantém Product.category para compat)
+//
+model ProductCategory {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name     String
+  active   Boolean @default(true)
+  sort     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, active, sort])
+}
+
+model Product {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // categoria antiga (compat). pode manter até migrar pro modelo normalizado
+  category String?
+
+  // categoria nova (opcional)
+  categoryId  String?
+  categoryRef ProductCategory? @relation(fields: [categoryId], references: [id])
+
+  name        String
+  description String?
+  price       Float
+  unit        String?
+  cost        Float?
+  type        String  @default("PRODUCED") // PRODUCED, BASE, RESELL
+  imageUrl    String?
+  active      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems     OrderItem[]
+  recipeItems    RecipeItem[]
+  modifierGroups ProductModifierGroup[]
+
+  @@index([tenantId, active])
+  @@index([tenantId, categoryId])
+}
+
+model ProductModifierGroup {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  name      String
+  type      ModifierGroupType
+  minSelect Int     @default(0)
+  maxSelect Int
+  required  Boolean @default(false)
+  sort      Int     @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  options ProductModifierOption[]
+
+  @@index([tenantId, productId, active, sort])
+}
+
+model ProductModifierOption {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  groupId String
+  group   ProductModifierGroup @relation(fields: [groupId], references: [id])
+
+  name   String
+  price  Float   @default(0)
+  active Boolean @default(true)
+  sort   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, groupId, active, sort])
+}
+
+//
+// ORDERS
+//
+model Order {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  externalId String? @unique
+  displayId  String?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  addressId String?
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  source String
+  status OrderStatus @default(OPEN)
+
+  // recomendo armazenar subtotal/fees para auditoria
+  subtotal    Float? // soma dos itens
+  deliveryFee Float? // taxa entrega
+  discount    Float? // desconto/cupom
+  total       Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    OrderItem[]
+  payments Payment[]
+  events   OrderEvent[]
+  delivery Delivery?
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  name       String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+  notes      String?
+
+  modifiers OrderItemModifier[]
+}
+
+model OrderItemModifier {
+  id          String    @id @default(uuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+
+  // snapshot (não quebra histórico)
+  groupName String
+  name      String
+  quantity  Int
+  price     Float
+
+  // referência opcional (para rastrear origem no catálogo)
+  groupId  String?
+  optionId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([groupId])
+  @@index([optionId])
+}
+
+model OrderEvent {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  type      String
+  payload   Json?
+  createdAt DateTime @default(now())
+}
+
+//
+// FINANCIAL
+//
+model CashRegister {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  openedAt      DateTime
+  closedAt      DateTime?
+  openingAmount Float
+  closingAmount Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements CashMovement[]
+}
+
+model CashMovement {
+  id             String       @id @default(uuid())
+  cashRegisterId String
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
+
+  type      CashMovementType
+  amount    Float
+  reason    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  method PaymentMethod
+  amount Float
+  status PaymentStatus @default(PENDING)
+
+  // integração (Pix/cartão)
+  provider     String?
+  externalId   String?   // txid / id provedor
+  pixCode      String?
+  pixExpiresAt DateTime?
+  meta         Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId, status])
+  @@index([externalId])
+}
+
+//
+// INVENTORY
+//
+model InventoryItem {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name     String
+  cost     Float?
+  unit     String
+  quantity Float
+  minimum  Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements   InventoryMovement[]
+  recipeItems RecipeItem[]
+}
+
+model InventoryMovement {
+  id     String        @id @default(uuid())
+  itemId String
+  item   InventoryItem @relation(fields: [itemId], references: [id])
+
+  type      InventoryMovementType
+  quantity  Float
+  reason    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+}
+
+model RecipeItem {
+  id        String @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  quantity Float
+}
+
+//
+// DELIVERY
+//
+model DeliveryPerson {
+  id       String  @id @default(uuid())
+  name     String
+  email    String  @unique
+  password String
+  phone    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries Delivery[]
+}
+
+model Delivery {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  deliveryPersonId String?
+  deliveryPerson   DeliveryPerson? @relation(fields: [deliveryPersonId], references: [id])
+
+  status DeliveryStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//
+// ATENDIMENTO / AUTOMAÇÃO
+//
+model Conversation {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  messages  Message[]
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  sender  MessageSender
+  content String
+  meta    Json?
+
+  createdAt DateTime @default(now())
+}
