@@ -1,29 +1,40 @@
-# Changelog v3.2.0
+# Changelog v4.0.0
 
-Data: 2026-02-07
+Data: 2026-02-19
 
-## Front (ERP/PDV)
+## Front (ERP/PDV/Cozinha)
 
-- Layout base com sidebar/topbar e tema magenta/vinho.
-- Novas rotas: `/categories`, `/orders`, `/settings/tenant`.
-- Design system minimo: Button, Input, Select, Card, Modal, Table, Badge, Toast, Skeleton, Empty State.
-- PDV: busca, categorias ativas, carrinho e checkout.
-- Caixa: abertura/fechamento + movimentacoes manuais + historico.
-- Estoque: CRUD de insumos + movimentacoes via modal + historico por item.
-- Produtos/Categorias: CRUD basico + ativar/desativar.
-- Atendimento: inbox simples consumindo conversas.
+- Tema com suporte a variacao `magenta` e `corporate-blue`.
+- PDV com impressao de comanda melhorada (itens, modifiers e observacoes).
+- PDV envia metadados no checkout: cliente, telefone, endereco, referencia, comanda e modo.
+- Produtos:
+  - configuracao de pizza com descricoes por sabor;
+  - ficha tecnica via modal com campos guiados;
+  - ficha tecnica aceita insumo e produto base.
+- Estoque: cadastro de insumo via modal com descricoes de campo.
+- Cozinha:
+  - cards com resumo + dropdown de detalhes;
+  - exibicao de notes/modifiers;
+  - telefone, pagamento, atalho WhatsApp e atalho Google Maps.
 
 ## API
 
-- Tenant: `GET /api/tenant/me`.
-- Categorias: `PATCH /api/categories/:id` + filtro `?active=`.
-- Produtos: `PATCH /api/products/:id` + filtro `?active=`.
-- Caixa: `GET /api/cash/movements`.
-- Estoque: `POST /api/inventory/movements` + `GET /api/inventory/items/:id/movements`.
-- Pedidos: `GET /api/orders` com filtros `status/dateFrom/dateTo`.
-- Atendimento: `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations/:id/messages`.
+- `GET /api/kitchen/orders` agora retorna `items.modifiers` e `payments`.
+- `POST /api/pdv/checkout` persiste dados de cliente/endereco/comanda/origem do pedido.
+- `GET/PUT /api/products/:id/recipe` ampliado para suportar:
+  - `inventoryItemId` (insumo)
+  - `ingredientProductId` (produto base/semiacabado)
+- `orderStateMachine` com baixa de estoque recursiva para ficha tecnica multinivel.
 
-## Observacoes
+## Banco (Prisma)
 
-- API banner ainda loga v3.1.0; atualizar no servidor se quiser alinhar.
-- Front-cardapio foi mantido sem mudancas.
+- `ProductPizzaFlavor.description` adicionado.
+- `RecipeItem` agora suporta ingrediente por produto base (`ingredientProductId`) alem de insumo.
+- Relacoes adicionais em `Product` para uso como ingrediente de outro produto.
+
+## Versoes
+
+- `api/package.json`: `4.0.0`
+- `front-pdr-erp/package.json`: `4.0.0`
+- `front-cardapio/package.json`: `4.0.0`
+- Banner da API atualizado para `v4.0.0`.

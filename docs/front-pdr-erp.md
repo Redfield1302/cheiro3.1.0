@@ -11,6 +11,7 @@ App: `front-pdr-erp`
 - `/products` -> produtos (CRUD basico)
 - `/categories` -> categorias (CRUD basico)
 - `/orders` -> pedidos (lista simples + filtros)
+- `/kitchen` -> painel da cozinha por status
 - `/conversations` -> atendimento (inbox)
 - `/settings/tenant` -> dados do estabelecimento
 
@@ -39,14 +40,18 @@ Rotas sao protegidas por role. Sem token redireciona para `/login`.
 - PDV: `GET /api/pdv/products`, `POST /api/pdv/cart`, `GET /api/pdv/cart/:id`,
   `POST /api/pdv/cart/:id/items`, `DELETE /api/pdv/cart/:id/items/:itemId`,
   `POST /api/pdv/checkout`
+- Ficha tecnica: `GET/PUT /api/products/:id/recipe`
 - Caixa: `GET /api/cash/status`, `POST /api/cash/open`, `POST /api/cash/close`, `GET/POST /api/cash/movements`
 - Produtos/Categorias: `GET/POST/PATCH /api/products`, `GET/POST/PATCH /api/categories`
 - Pedidos: `GET /api/orders?status=&dateFrom=&dateTo=`
+- Cozinha: `GET /api/kitchen/orders`, `PATCH /api/kitchen/orders/:id/status`
 - Atendimento: `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations/:id/messages`
 
 ## UX
 
-- Tema magenta/vinho
+- Tema com 2 opcoes: magenta/vinho e azul corporativo
 - Layout consistente com Sidebar/Topbar
 - Status da API (online/offline)
 - Toasts para feedback
+- Cozinha com dropdown de detalhes por pedido
+- Atalhos de WhatsApp e Google Maps na cozinha

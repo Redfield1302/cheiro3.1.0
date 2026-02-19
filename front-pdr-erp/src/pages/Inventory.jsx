@@ -13,13 +13,14 @@ import { useToast } from "../components/ui/Toast.jsx";
 export default function Inventory() {
   const toast = useToast();
   const [items, setItems] = useState([]);
-  const [name, setName] = useState("Mussarela");
-  const [unit, setUnit] = useState("g");
-  const [cost, setCost] = useState("0.06");
-  const [qty, setQty] = useState("5000");
-  const [min, setMin] = useState("1000");
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState("");
+  const [cost, setCost] = useState("");
+  const [qty, setQty] = useState("");
+  const [min, setMin] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [itemModalOpen, setItemModalOpen] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
@@ -42,9 +43,39 @@ export default function Inventory() {
 
   useEffect(()=>{ refresh(); },[]);
 
+  function parseDecimal(v) {
+    const raw = String(v ?? "").trim();
+    if (!raw) return NaN;
+    const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+    return Number(normalized);
+  }
+
   async function save() {
+    const parsedCost = cost === "" ? null : parseDecimal(cost);
+    const parsedQty = parseDecimal(qty);
+    const parsedMin = parseDecimal(min);
+
+    if (!name.trim()) return toast.error("Nome do insumo e obrigatorio");
+    if (!unit.trim()) return toast.error("Unidade e obrigatoria");
+    if (!Number.isFinite(parsedQty)) return toast.error("Quantidade atual invalida");
+    if (!Number.isFinite(parsedMin)) return toast.error("Estoque minimo invalido");
+    if (parsedCost != null && !Number.isFinite(parsedCost)) return toast.error("Custo unitario invalido");
+
     setErr("");
-    await createInventory({ name, unit, cost:Number(cost), quantity:Number(qty), minimum:Number(min) });
+    await createInventory({
+      name: name.trim(),
+      unit: unit.trim(),
+      cost: parsedCost,
+      quantity: parsedQty,
+      minimum: parsedMin
+    });
+    setName("");
+    setUnit("");
+    setCost("");
+    setQty("");
+    setMin("");
+    setItemModalOpen(false);
+    toast.success("Insumo cadastrado");
     await refresh();
   }
 
@@ -84,14 +115,12 @@ export default function Inventory() {
       <PageState loading={loading} error={err} />
 
       <Card>
-        <div className="section-title">Novo insumo</div>
-        <div className="grid" style={{ maxWidth: 420, marginTop: 10 }}>
-          <Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="nome" />
-          <Input value={unit} onChange={(e)=>setUnit(e.target.value)} placeholder="unidade" />
-          <Input value={cost} onChange={(e)=>setCost(e.target.value)} placeholder="custo" />
-          <Input value={qty} onChange={(e)=>setQty(e.target.value)} placeholder="quantidade" />
-          <Input value={min} onChange={(e)=>setMin(e.target.value)} placeholder="minimo" />
-          <Button variant="primary" onClick={()=>save().catch(e=>setErr(e.message))}>Salvar</Button>
+        <div className="inline" style={{ justifyContent: "space-between" }}>
+          <div className="section-title">Cadastro de insumos</div>
+          <Button variant="primary" onClick={()=>setItemModalOpen(true)}>Adicionar insumo</Button>
+        </div>
+        <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+          Use o botao para cadastrar novos itens de estoque com nome, unidade, custo e niveis de quantidade.
         </div>
       </Card>
 
@@ -139,6 +168,45 @@ export default function Inventory() {
               ])}
             />
           )}
+        </div>
+      </Modal>
+
+      <Modal open={itemModalOpen} title="Adicionar insumo" onClose={()=>setItemModalOpen(false)}>
+        <div className="grid">
+          <div className="field-help">
+            <div className="section-title">Nome do insumo</div>
+            <div className="muted" style={{ fontSize: 12 }}>Descricao clara para busca e baixa automatica na ficha tecnica.</div>
+            <Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Ex.: Queijo Mussarela" />
+          </div>
+
+          <div className="field-help">
+            <div className="section-title">Unidade</div>
+            <div className="muted" style={{ fontSize: 12 }}>Unidade de controle do estoque. Exemplos: kg, g, l, ml, un.</div>
+            <Input value={unit} onChange={(e)=>setUnit(e.target.value)} placeholder="Ex.: kg" />
+          </div>
+
+          <div className="field-help">
+            <div className="section-title">Custo unitario</div>
+            <div className="muted" style={{ fontSize: 12 }}>Valor por unidade informada. Aceita virgula ou ponto.</div>
+            <Input value={cost} onChange={(e)=>setCost(e.target.value)} placeholder="Ex.: 37,00" />
+          </div>
+
+          <div className="field-help">
+            <div className="section-title">Quantidade atual</div>
+            <div className="muted" style={{ fontSize: 12 }}>Estoque disponivel no momento para este item.</div>
+            <Input value={qty} onChange={(e)=>setQty(e.target.value)} placeholder="Ex.: 12,500" />
+          </div>
+
+          <div className="field-help">
+            <div className="section-title">Estoque minimo</div>
+            <div className="muted" style={{ fontSize: 12 }}>Quando atingir esse valor, o sistema alerta reposicao.</div>
+            <Input value={min} onChange={(e)=>setMin(e.target.value)} placeholder="Ex.: 2,000" />
+          </div>
+
+          <div className="inline">
+            <Button variant="primary" onClick={()=>save().catch(e=>setErr(e.message))}>Salvar insumo</Button>
+            <Button onClick={()=>setItemModalOpen(false)}>Cancelar</Button>
+          </div>
         </div>
       </Modal>
     </div>

@@ -69,6 +69,11 @@ enum ModifierGroupType {
   FLAVOR  // sabores (pizza meio a meio etc.)
 }
 
+enum PizzaPricingRule {
+  MAIOR_SABOR
+  PROPORCIONAL
+}
+
 //
 // CORE (MULTI-TENANT)
 //
@@ -91,8 +96,11 @@ model Tenant {
   cashRegisters  CashRegister[]
   inventoryItems InventoryItem[]
   conversations  Conversation[]
-   productModifierGroups  ProductModifierGroup[]
+  productModifierGroups  ProductModifierGroup[]
   productModifierOptions ProductModifierOption[]
+  pizzaSizes ProductPizzaSize[]
+  pizzaFlavors ProductPizzaFlavor[]
+  pizzaFlavorPrices ProductPizzaFlavorPrice[]
 
 }
 
@@ -195,6 +203,8 @@ model Product {
   unit        String?
   cost        Float?
   type        String  @default("PRODUCED") // PRODUCED, BASE, RESELL
+  isPizza     Boolean @default(false)
+  pizzaPricingRule PizzaPricingRule @default(MAIOR_SABOR)
   imageUrl    String?
   active      Boolean @default(true)
 
@@ -202,11 +212,73 @@ model Product {
   updatedAt DateTime @updatedAt
 
   orderItems     OrderItem[]
-  recipeItems    RecipeItem[]
+  recipeItems    RecipeItem[] @relation("RecipeProduct")
+  recipeUsedBy   RecipeItem[] @relation("RecipeIngredientProduct")
   modifierGroups ProductModifierGroup[]
+  pizzaSizes     ProductPizzaSize[]
+  pizzaFlavors   ProductPizzaFlavor[]
 
   @@index([tenantId, active])
   @@index([tenantId, categoryId])
+}
+
+model ProductPizzaSize {
+  id         String @id @default(uuid())
+  tenantId   String
+  tenant     Tenant @relation(fields: [tenantId], references: [id])
+
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name       String
+  maxFlavors Int    @default(1) // 1,2,3,4
+  active     Boolean @default(true)
+  sort       Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flavorPrices ProductPizzaFlavorPrice[]
+
+  @@index([tenantId, productId, active, sort])
+}
+
+model ProductPizzaFlavor {
+  id        String @id @default(uuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name      String
+  description String?
+  active    Boolean @default(true)
+  sort      Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prices ProductPizzaFlavorPrice[]
+
+  @@index([tenantId, productId, active, sort])
+}
+
+model ProductPizzaFlavorPrice {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  flavorId String
+  flavor   ProductPizzaFlavor @relation(fields: [flavorId], references: [id], onDelete: Cascade)
+
+  sizeId   String
+  size     ProductPizzaSize @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+
+  price    Float
+
+  @@unique([flavorId, sizeId])
+  @@index([tenantId, flavorId, sizeId])
 }
 
 model ProductModifierGroup {
@@ -431,12 +503,19 @@ model InventoryMovement {
 model RecipeItem {
   id        String @id @default(uuid())
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation("RecipeProduct", fields: [productId], references: [id])
 
-  inventoryItemId String
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  ingredientProductId String?
+  ingredientProduct   Product? @relation("RecipeIngredientProduct", fields: [ingredientProductId], references: [id])
 
   quantity Float
+
+  @@index([productId])
+  @@index([inventoryItemId])
+  @@index([ingredientProductId])
 }
 
 //

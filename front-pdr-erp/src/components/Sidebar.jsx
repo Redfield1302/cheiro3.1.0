@@ -7,6 +7,7 @@ const items = [
   { to: "/products", label: "Produtos" },
   { to: "/categories", label: "Categorias" },
   { to: "/orders", label: "Pedidos" },
+  { to: "/kitchen", label: "Cozinha" },
   { to: "/conversations", label: "Atendimento" }
 ];
 

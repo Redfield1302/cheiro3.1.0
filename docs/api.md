@@ -76,8 +76,8 @@ Body:
   "description": "...",
   "imageUrl": "...",
   "type": "PRODUCED",
-  "unit": "un",
-  "cost": 20
+  "isPizza": true,
+  "pizzaPricingRule": "MAIOR_SABOR"
 }
 ```
 
@@ -85,7 +85,47 @@ Body:
 
 Body:
 ```
-{ "name": "Pizza", "price": 55, "active": false }
+{ "name": "Pizza", "price": 55, "active": false, "isPizza": true }
+```
+
+### GET /api/products/:id/pizza-config
+
+Retorna configuracao de tamanhos/sabores do produto pizza.
+
+### PUT /api/products/:id/pizza-config
+
+Body:
+```
+{
+  "isPizza": true,
+  "pizzaPricingRule": "MAIOR_SABOR",
+  "sizes": [
+    { "name": "Grande", "maxFlavors": 2, "sort": 0 }
+  ],
+  "flavors": [
+    {
+      "name": "Calabresa",
+      "sort": 0,
+      "prices": { "Grande": 59.9 }
+    }
+  ]
+}
+```
+
+### GET /api/products/:id/recipe
+
+Retorna ficha tecnica do produto (itens de insumo e/ou produto base).
+
+### PUT /api/products/:id/recipe
+
+Body:
+```
+{
+  "items": [
+    { "inventoryItemId": "...", "quantity": 0.12 },
+    { "ingredientProductId": "...", "quantity": 1 }
+  ]
+}
 ```
 
 ## Estoque (protegido)
@@ -120,9 +160,45 @@ Retorna historico do item.
 
 ### POST /api/pdv/cart/:cartId/items
 
+Body base:
+```
+{ "productId": "...", "quantity": 1 }
+```
+
+Para pizza fracionada:
+```
+{
+  "productId": "...",
+  "quantity": 1,
+  "pizza": {
+    "sizeName": "Grande",
+    "parts": [
+      { "fraction": "1/2", "flavorName": "Calabresa" },
+      { "fraction": "1/2", "flavorName": "Frango" }
+    ]
+  }
+}
+```
+
+Regra `MAIOR_SABOR`: valor da pizza = maior preco entre os sabores escolhidos no tamanho.
+
 ### DELETE /api/pdv/cart/:cartId/items/:itemId
 
 ### POST /api/pdv/checkout
+
+Body:
+```
+{
+  "cartId": "...",
+  "paymentMethod": "PIX",
+  "customerName": "Jairu",
+  "customerPhone": "17999999999",
+  "customerAddress": "Rua X, 123",
+  "customerReference": "Proximo ao mercado",
+  "comanda": "337",
+  "mode": "DELIVERY"
+}
+```
 
 ## Caixa (protegido)
 
@@ -147,6 +223,22 @@ Body:
 
 Retorna lista simples (ultima 100).
 
+## Cozinha
+
+### GET /api/kitchen/orders?statuses=CONFIRMED,PREPARING,READY,DISPATCHED
+
+Retorna pedidos com:
+- `customer` e `address`
+- `payments` (ultimo pago)
+- `items` com `modifiers`
+
+### PATCH /api/kitchen/orders/:id/status
+
+Body:
+```
+{ "toStatus": "PREPARING", "reason": "kitchen_update" }
+```
+
 ## Atendimento
 
 ### GET /api/conversations
@@ -170,7 +262,32 @@ Body:
 
 ### GET /api/menu/:slug/products/:id
 
+No detalhe do produto pizza, retorna tambem `pizzaSizes` e `pizzaFlavors` com precos por tamanho.
+
 ### POST /api/menu/:slug/orders
+
+Para pizza fracionada, enviar `item.pizza` com `sizeName` e `parts`:
+
+```
+{
+  "paymentMethod": "PIX",
+  "items": [
+    {
+      "productId": "...",
+      "quantity": 1,
+      "pizza": {
+        "sizeName": "Grande",
+        "parts": [
+          { "fraction": "1/2", "flavorName": "Calabresa" },
+          { "fraction": "1/2", "flavorName": "Frango" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Regra `MAIOR_SABOR`: valor da pizza = maior preco entre os sabores escolhidos no tamanho.
 
 ## Formato de erro
 

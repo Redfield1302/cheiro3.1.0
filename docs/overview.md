@@ -1,6 +1,6 @@
 # Visao Geral
 
-Cheiro3 v3.2.0 e um monorepo com tres apps:
+Cheiro3 v4.0.0 e um monorepo com tres apps:
 
 - API: Node.js + Express + Prisma (PostgreSQL)
 - front-cardapio: cardapio publico e pedidos (React + Vite)
@@ -26,5 +26,5 @@ Cheiro3 v3.2.0 e um monorepo com tres apps:
 
 ## Versoes
 
-- API banner atual: `API v3.1.0` (ainda nao atualizado)
-- Fronts e docs: `v3.2.0`
+- API banner atual: `API v4.0.0`
+- Fronts e docs: `v4.0.0`

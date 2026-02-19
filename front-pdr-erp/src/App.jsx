@@ -6,6 +6,7 @@ import Inventory from "./pages/Inventory.jsx";
 import Products from "./pages/Products.jsx";
 import Categories from "./pages/Categories.jsx";
 import Orders from "./pages/Orders.jsx";
+import Kitchen from "./pages/Kitchen.jsx";
 import Conversations from "./pages/Conversations.jsx";
 import TenantSettings from "./pages/TenantSettings.jsx";
 import NoPermission from "./pages/NoPermission.jsx";
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/products" element={<RoleGuard roles={["ADMIN","MANAGER"]}><Products /></RoleGuard>} />
             <Route path="/categories" element={<RoleGuard roles={["ADMIN","MANAGER"]}><Categories /></RoleGuard>} />
             <Route path="/orders" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Orders /></RoleGuard>} />
+            <Route path="/kitchen" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER","ATTENDANT"]}><Kitchen /></RoleGuard>} />
             <Route path="/conversations" element={<RoleGuard roles={["ADMIN","MANAGER","ATTENDANT"]}><Conversations /></RoleGuard>} />
             <Route path="/settings/tenant" element={<RoleGuard roles={["ADMIN","MANAGER"]}><TenantSettings /></RoleGuard>} />
           </Route>

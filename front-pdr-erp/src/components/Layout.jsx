@@ -7,6 +7,7 @@ const titles = {
   "/cash": { title: "Caixa", subtitle: "Abertura, fechamento e movimentos" },
   "/inventory": { title: "Estoque", subtitle: "Insumos e movimentacoes" },
   "/products": { title: "Produtos", subtitle: "Catalogo interno" },
+  "/kitchen": { title: "Cozinha", subtitle: "Acompanhe e atualize o preparo por tenant" },
   "/conversations": { title: "Atendimento", subtitle: "Inbox e mensagens" }
 };
 

@@ -28,11 +28,14 @@ export const listInventoryMovements = (id) => req(`/api/inventory/items/${id}/mo
 export const listPdvProducts = () => req("/api/pdv/products");
 export const createCart = () => req("/api/pdv/cart", { method: "POST" });
 export const getCart = (cartId) => req(`/api/pdv/cart/${cartId}`);
-export const addItem = (cartId, productId, quantity = 1) =>
-  req(`/api/pdv/cart/${cartId}/items`, { method: "POST", body: JSON.stringify({ productId, quantity }) });
+export const addItem = (cartId, productId, quantity = 1, pizza = null) =>
+  req(`/api/pdv/cart/${cartId}/items`, {
+    method: "POST",
+    body: JSON.stringify({ productId, quantity, ...(pizza ? { pizza } : {}) })
+  });
 export const removeItem = (cartId, itemId) => req(`/api/pdv/cart/${cartId}/items/${itemId}`, { method: "DELETE" });
-export const checkout = (cartId, paymentMethod) =>
-  req("/api/pdv/checkout", { method: "POST", body: JSON.stringify({ cartId, paymentMethod }) });
+export const checkout = (cartId, paymentMethod, extra = {}) =>
+  req("/api/pdv/checkout", { method: "POST", body: JSON.stringify({ cartId, paymentMethod, ...extra }) });
 
 export const cashStatus = () => req("/api/cash/status");
 export const cashOpen = (openingAmount) => req("/api/cash/open", { method: "POST", body: JSON.stringify({ openingAmount }) });
@@ -55,6 +58,10 @@ export const listProducts = async (params = {}) => {
 };
 export const createProduct = (body) => req("/api/products", { method: "POST", body: JSON.stringify(body) });
 export const updateProduct = (id, body) => req(`/api/products/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const getPizzaConfig = (id) => req(`/api/products/${id}/pizza-config`);
+export const savePizzaConfig = (id, body) => req(`/api/products/${id}/pizza-config`, { method: "PUT", body: JSON.stringify(body) });
+export const getProductRecipe = (id) => req(`/api/products/${id}/recipe`);
+export const saveProductRecipe = (id, body) => req(`/api/products/${id}/recipe`, { method: "PUT", body: JSON.stringify(body) });
 
 export const listConversations = () => req("/api/conversations");
 export const getConversation = (id) => req(`/api/conversations/${id}`);
@@ -64,3 +71,14 @@ export const listOrdersSimple = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
   return req(`/api/orders${qs ? `?${qs}` : ""}`);
 };
+
+export const listKitchenOrders = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return req(`/api/kitchen/orders${qs ? `?${qs}` : ""}`);
+};
+
+export const updateKitchenOrderStatus = (id, toStatus, reason = "kitchen_ui") =>
+  req(`/api/kitchen/orders/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ toStatus, reason })
+  });

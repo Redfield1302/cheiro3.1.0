@@ -14,6 +14,7 @@ const menuRoutes = require("./http/routes/menuRoutes");
 const tenantRoutes = require("./http/routes/tenantRoutes");
 const ordersRoutes = require("./http/routes/ordersRoutes");
 const conversationsRoutes = require("./http/routes/conversationsRoutes");
+const kitchenRoutes = require("./http/routes/kitchenRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,8 +35,9 @@ app.use("/api/cash", cashRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/conversations", conversationsRoutes);
+app.use("/api/kitchen", kitchenRoutes);
 
-app.use((req, res) => res.status(404).json({ error: "Rota não encontrada" }));
+app.use((req, res) => res.status(404).json({ error: "Rota nao encontrada" }));
 
 async function start() {
   const prisma = new PrismaClient();
@@ -43,7 +45,7 @@ async function start() {
   await ensureSeed(prisma);
   await prisma.$disconnect();
 
-  app.listen(PORT, () => console.log(`API v3.1.0 rodando em http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`API v4.0.0 rodando em http://localhost:${PORT}`));
 }
 
 start();
