@@ -45,7 +45,7 @@ async function start() {
   await ensureSeed(prisma);
   await prisma.$disconnect();
 
-  app.listen(PORT, () => console.log(`API v4.0.0 rodando em http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`API v5.0.0-alpha rodando em http://localhost:${PORT}`));
 }
 
 start();

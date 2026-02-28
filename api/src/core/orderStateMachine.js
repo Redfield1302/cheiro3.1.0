@@ -47,7 +47,11 @@ async function collectInventoryConsumption(tx, { tenantId, productId, multiplier
     if (!Number.isFinite(qty) || qty <= 0) continue;
 
     if (r.inventoryItemId) {
-      consumed.set(r.inventoryItemId, (consumed.get(r.inventoryItemId) || 0) + qty);
+      const unitCost = Number(r.inventoryItem?.cost || 0);
+      const current = consumed.get(r.inventoryItemId) || { qty: 0, costTotal: 0 };
+      current.qty += qty;
+      current.costTotal += qty * unitCost;
+      consumed.set(r.inventoryItemId, current);
       continue;
     }
 
@@ -74,20 +78,50 @@ async function applyInventoryForOrder(tx, orderId, direction) {
 
   const consumed = new Map();
   const cache = new Map();
+  let orderCmvTotal = 0;
 
   for (const item of order.items) {
     if (!item.productId) continue;
+    const itemConsumed = new Map();
     await collectInventoryConsumption(tx, {
       tenantId: order.tenantId,
       productId: item.productId,
       multiplier: Number(item.quantity || 0),
       cache,
       stack: new Set(),
-      consumed
+      consumed: itemConsumed
     });
+
+    for (const [inventoryItemId, payload] of itemConsumed.entries()) {
+      const current = consumed.get(inventoryItemId) || { qty: 0, costTotal: 0 };
+      current.qty += Number(payload.qty || 0);
+      current.costTotal += Number(payload.costTotal || 0);
+      consumed.set(inventoryItemId, current);
+    }
+
+    if (direction === "OUT") {
+      let itemCmv = 0;
+      for (const payload of itemConsumed.values()) itemCmv += Number(payload.costTotal || 0);
+
+      const lineRevenue = Number(item.totalPrice || 0);
+      const lineMarginValue = lineRevenue - itemCmv;
+      const lineMarginPercent = lineRevenue > 0 ? (lineMarginValue / lineRevenue) * 100 : 0;
+
+      await tx.orderItem.update({
+        where: { id: item.id },
+        data: {
+          cmvUnit: Number(item.quantity || 0) > 0 ? itemCmv / Number(item.quantity) : itemCmv,
+          cmvTotal: itemCmv,
+          marginValue: lineMarginValue,
+          marginPercent: lineMarginPercent
+        }
+      });
+      orderCmvTotal += itemCmv;
+    }
   }
 
-  for (const [inventoryItemId, qty] of consumed.entries()) {
+  for (const [inventoryItemId, payload] of consumed.entries()) {
+    const qty = Number(payload.qty || 0);
     const signed = direction === "OUT" ? -qty : qty;
 
     await tx.inventoryItem.update({
@@ -101,6 +135,20 @@ async function applyInventoryForOrder(tx, orderId, direction) {
         type: direction === "OUT" ? InventoryMovementType.OUT : InventoryMovementType.IN,
         quantity: qty,
         reason: direction === "OUT" ? `Baixa pedido ${orderId}` : `Reversao pedido ${orderId}`
+      }
+    });
+  }
+
+  if (direction === "OUT") {
+    const revenue = Number(order.total || 0);
+    const grossMarginValue = revenue - orderCmvTotal;
+    const grossMarginPercent = revenue > 0 ? (grossMarginValue / revenue) * 100 : 0;
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        cmvTotal: orderCmvTotal,
+        grossMarginValue,
+        grossMarginPercent
       }
     });
   }
@@ -138,4 +186,3 @@ async function transitionOrderState(tx, { orderId, toStatus, actorUserId = null,
 }
 
 module.exports = { transitionOrderState };
-

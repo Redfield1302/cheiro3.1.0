@@ -4,293 +4,77 @@ Base URL (dev): `http://localhost:3000`
 
 ## Auth
 
-JWT em rotas protegidas. Envie bearer token:
-
-```
-Authorization: Bearer <token>
-```
-
-### POST /api/auth/login
-
-Body:
-```
-{ "email": "admin@test.com", "password": "admin123" }
-```
-
-Response:
-```
-{ "token": "...", "user": { ... }, "tenant": { ... } }
-```
-
-Alias de compatibilidade: o mesmo router tambem esta montado em `/api/login`, entao `/api/login/login` funciona.
+- `POST /api/auth/login`
+- Header nas rotas protegidas:
+  - `Authorization: Bearer <token>`
 
 ## Health
 
-### GET /health
-
-Response:
-```
-{ "status": "ok", "ts": "2026-02-06T00:00:00.000Z" }
-```
+- `GET /health`
 
 ## Tenant
 
-### GET /api/tenant/me
-
-Retorna dados do tenant do usuario autenticado.
-
-## Categorias (protegido)
-
-### GET /api/categories?active=true|false
-
-Retorna categorias por tenant. Se `active` for passado, filtra por status.
-
-### POST /api/categories
-
-Body:
-```
-{ "name": "Pizzas", "sort": 1, "active": true }
-```
-
-### PATCH /api/categories/:id
-
-Body:
-```
-{ "name": "Pizzas", "sort": 1, "active": false }
-```
-
-## Produtos (protegido)
-
-### GET /api/products?active=true|false
-
-Retorna produtos por tenant. Inclui `categoryRef`.
-
-### POST /api/products
-
-Body:
-```
-{
-  "name": "Pizza Calabresa",
-  "price": 49.9,
-  "categoryId": "...",
-  "description": "...",
-  "imageUrl": "...",
-  "type": "PRODUCED",
-  "isPizza": true,
-  "pizzaPricingRule": "MAIOR_SABOR"
-}
-```
-
-### PATCH /api/products/:id
-
-Body:
-```
-{ "name": "Pizza", "price": 55, "active": false, "isPizza": true }
-```
-
-### GET /api/products/:id/pizza-config
-
-Retorna configuracao de tamanhos/sabores do produto pizza.
-
-### PUT /api/products/:id/pizza-config
-
-Body:
-```
-{
-  "isPizza": true,
-  "pizzaPricingRule": "MAIOR_SABOR",
-  "sizes": [
-    { "name": "Grande", "maxFlavors": 2, "sort": 0 }
-  ],
-  "flavors": [
-    {
-      "name": "Calabresa",
-      "sort": 0,
-      "prices": { "Grande": 59.9 }
-    }
-  ]
-}
-```
-
-### GET /api/products/:id/recipe
-
-Retorna ficha tecnica do produto (itens de insumo e/ou produto base).
-
-### PUT /api/products/:id/recipe
-
-Body:
-```
-{
-  "items": [
-    { "inventoryItemId": "...", "quantity": 0.12 },
-    { "ingredientProductId": "...", "quantity": 1 }
-  ]
-}
-```
-
-## Estoque (protegido)
-
-### GET /api/inventory/items
-
-### POST /api/inventory/items
-
-Body:
-```
-{ "name": "Mussarela", "unit": "g", "cost": 0.06, "quantity": 5000, "minimum": 1000 }
-```
-
-### POST /api/inventory/movements
-
-Body:
-```
-{ "itemId": "...", "type": "IN", "quantity": 100, "reason": "Ajuste" }
-```
-
-### GET /api/inventory/items/:id/movements
-
-Retorna historico do item.
-
-## PDV (protegido)
-
-### GET /api/pdv/products
-
-### POST /api/pdv/cart
-
-### GET /api/pdv/cart/:cartId
-
-### POST /api/pdv/cart/:cartId/items
-
-Body base:
-```
-{ "productId": "...", "quantity": 1 }
-```
-
-Para pizza fracionada:
-```
-{
-  "productId": "...",
-  "quantity": 1,
-  "pizza": {
-    "sizeName": "Grande",
-    "parts": [
-      { "fraction": "1/2", "flavorName": "Calabresa" },
-      { "fraction": "1/2", "flavorName": "Frango" }
-    ]
-  }
-}
-```
-
-Regra `MAIOR_SABOR`: valor da pizza = maior preco entre os sabores escolhidos no tamanho.
-
-### DELETE /api/pdv/cart/:cartId/items/:itemId
-
-### POST /api/pdv/checkout
-
-Body:
-```
-{
-  "cartId": "...",
-  "paymentMethod": "PIX",
-  "customerName": "Jairu",
-  "customerPhone": "17999999999",
-  "customerAddress": "Rua X, 123",
-  "customerReference": "Proximo ao mercado",
-  "comanda": "337",
-  "mode": "DELIVERY"
-}
-```
-
-## Caixa (protegido)
-
-### GET /api/cash/status
-
-### POST /api/cash/open
-
-### POST /api/cash/close
-
-### GET /api/cash/movements
-
-### POST /api/cash/movements
-
-Body:
-```
-{ "type": "SUPPLY", "amount": 100, "reason": "Troco" }
-```
-
-## Pedidos
-
-### GET /api/orders?status=&dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD
-
-Retorna lista simples (ultima 100).
-
-## Cozinha
-
-### GET /api/kitchen/orders?statuses=CONFIRMED,PREPARING,READY,DISPATCHED
-
-Retorna pedidos com:
-- `customer` e `address`
-- `payments` (ultimo pago)
-- `items` com `modifiers`
-
-### PATCH /api/kitchen/orders/:id/status
-
-Body:
-```
-{ "toStatus": "PREPARING", "reason": "kitchen_update" }
-```
-
-## Atendimento
-
-### GET /api/conversations
-
-### GET /api/conversations/:id
-
-### POST /api/conversations/:id/messages
-
-Body:
-```
-{ "content": "ola", "sender": "HUMAN" }
-```
+- `GET /api/tenant/me`
+  - inclui `checkoutSettings`:
+    - `pixKey`
+    - `deliveryFee`
+    - `cardFeePercent`
+- `PATCH /api/tenant/me`
+  - atualiza dados do tenant, horarios e checkout settings.
 
 ## Cardapio (publico)
 
-### GET /api/menu/:slug
+- `GET /api/menu/:slug`
+- `GET /api/menu/:slug/categories`
+- `GET /api/menu/:slug/products`
+- `GET /api/menu/:slug/products/:id`
+- `POST /api/menu/:slug/orders`
+  - suporta:
+    - `items[]` com pizza/modifiers
+    - `customerName`, `customerPhone`, `customerAddress`, `customerReference`
+    - `paymentMethod`
+    - `deliveryFee`, `cardFeeAmount`
+- `GET /api/menu/orders/:id`
 
-### GET /api/menu/:slug/categories
+## PDV (protegido)
 
-### GET /api/menu/:slug/products?categoryId=
+- `GET /api/pdv/products`
+- `POST /api/pdv/cart`
+- `GET /api/pdv/cart/:cartId`
+- `POST /api/pdv/cart/:cartId/items`
+- `DELETE /api/pdv/cart/:cartId/items/:itemId`
+- `POST /api/pdv/checkout`
+  - suporta:
+    - dados do cliente
+    - `deliveryFee`, `cardFeeAmount`
+    - `mode`, `comanda`
 
-### GET /api/menu/:slug/products/:id
+## Produtos e ficha tecnica
 
-No detalhe do produto pizza, retorna tambem `pizzaSizes` e `pizzaFlavors` com precos por tamanho.
+- `GET/POST/PATCH /api/products`
+- `GET/PUT /api/products/:id/pizza-config`
+- `GET/PUT /api/products/:id/recipe`
 
-### POST /api/menu/:slug/orders
+## Estoque
 
-Para pizza fracionada, enviar `item.pizza` com `sizeName` e `parts`:
+- `GET /api/inventory/items`
+- `POST /api/inventory/items`
+- `POST /api/inventory/movements`
+- `GET /api/inventory/items/:id/movements`
 
-```
-{
-  "paymentMethod": "PIX",
-  "items": [
-    {
-      "productId": "...",
-      "quantity": 1,
-      "pizza": {
-        "sizeName": "Grande",
-        "parts": [
-          { "fraction": "1/2", "flavorName": "Calabresa" },
-          { "fraction": "1/2", "flavorName": "Frango" }
-        ]
-      }
-    }
-  ]
-}
-```
+## Cozinha
 
-Regra `MAIOR_SABOR`: valor da pizza = maior preco entre os sabores escolhidos no tamanho.
+- `GET /api/kitchen/orders`
+- `PATCH /api/kitchen/orders/:id/status`
 
-## Formato de erro
+## Pedidos e dashboard
 
-```
-{ "error": "mensagem" }
-```
+- `GET /api/orders`
+- `GET /api/orders/dashboard`
+
+## Tratamento de erro
+
+- Padrao de resposta:
+  - `{ "error": "mensagem" }`
+- Falha de banco (`P1001`) retorna `503` nas rotas principais.
+

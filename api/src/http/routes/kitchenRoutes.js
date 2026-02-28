@@ -15,50 +15,58 @@ function parseStatuses(raw) {
 }
 
 router.get("/orders", auth, async (req, res) => {
-  const tenantId = req.user.tenantId;
-  const statuses = parseStatuses(req.query.statuses);
+  try {
+    const tenantId = req.user.tenantId;
+    const statuses = parseStatuses(req.query.statuses);
 
-  const orders = await prisma.order.findMany({
-    where: {
-      tenantId,
-      status: { in: statuses }
-    },
-    orderBy: [{ createdAt: "asc" }],
-    include: {
-      customer: true,
-      address: true,
-      payments: {
-        where: { status: "PAID" },
-        orderBy: { createdAt: "desc" },
-        take: 1
+    const orders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        status: { in: statuses }
       },
-      items: {
-        orderBy: { id: "asc" },
-        include: {
-          modifiers: { orderBy: { createdAt: "asc" } }
+      orderBy: [{ createdAt: "asc" }],
+      include: {
+        customer: true,
+        address: true,
+        payments: {
+          where: { status: "PAID" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        },
+        items: {
+          orderBy: { id: "asc" },
+          include: {
+            modifiers: { orderBy: { createdAt: "asc" } }
+          }
         }
-      }
-    },
-    take: 120
-  });
+      },
+      take: 120
+    });
 
-  res.json(orders);
+    return res.json(orders);
+  } catch (e) {
+    console.error("kitchen_orders_error", e);
+    if (e?.code === "P1001") {
+      return res.status(503).json({ error: "Banco indisponivel no momento. Tente novamente." });
+    }
+    return res.status(500).json({ error: "Falha ao carregar pedidos da cozinha" });
+  }
 });
 
 router.patch("/orders/:id/status", auth, async (req, res) => {
-  const tenantId = req.user.tenantId;
-  const { toStatus, reason } = req.body || {};
-
-  if (!toStatus || !Object.values(OrderStatus).includes(toStatus)) {
-    return res.status(400).json({ error: "toStatus invalido" });
-  }
-
-  const order = await prisma.order.findUnique({ where: { id: req.params.id } });
-  if (!order || order.tenantId !== tenantId) {
-    return res.status(404).json({ error: "Pedido nao encontrado" });
-  }
-
   try {
+    const tenantId = req.user.tenantId;
+    const { toStatus, reason } = req.body || {};
+
+    if (!toStatus || !Object.values(OrderStatus).includes(toStatus)) {
+      return res.status(400).json({ error: "toStatus invalido" });
+    }
+
+    const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+    if (!order || order.tenantId !== tenantId) {
+      return res.status(404).json({ error: "Pedido nao encontrado" });
+    }
+
     const updated = await prisma.$transaction((tx) =>
       transitionOrderState(tx, {
         orderId: order.id,
@@ -69,6 +77,8 @@ router.patch("/orders/:id/status", auth, async (req, res) => {
     );
     return res.json(updated);
   } catch (e) {
+    console.error("kitchen_status_error", e);
+    if (e?.code === "P1001") return res.status(503).json({ error: "Banco indisponivel no momento. Tente novamente." });
     if (e.code === "INVALID_TRANSITION") return res.status(400).json({ error: e.message });
     return res.status(500).json({ error: "Falha ao atualizar status" });
   }

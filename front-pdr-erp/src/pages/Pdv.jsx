@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addItem, checkout, createCart, getCart, getPizzaConfig, listCategories, listPdvProducts, removeItem } from "../lib/api";
+import { addItem, checkout, createCart, getCart, getPizzaConfig, getTenantMe, listCategories, listPdvProducts, removeItem } from "../lib/api";
 import PageState from "../components/PageState.jsx";
 import { useToast } from "../components/ui/Toast.jsx";
 import { Modal } from "../components/ui/Modal.jsx";
@@ -39,6 +39,7 @@ export default function Pdv() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerReference, setCustomerReference] = useState("");
+  const [customerNotes, setCustomerNotes] = useState("");
   const [comanda, setComanda] = useState("");
   const [deliveryPerson, setDeliveryPerson] = useState("Renato Almeida");
   const [statusStep, setStatusStep] = useState(0);
@@ -54,25 +55,44 @@ export default function Pdv() {
   const [pizzaFlavors, setPizzaFlavors] = useState([]);
   const [pizzaSizeName, setPizzaSizeName] = useState("");
   const [pizzaSelected, setPizzaSelected] = useState([]);
+  const [billingOpen, setBillingOpen] = useState(false);
+  const [needChange, setNeedChange] = useState(false);
+  const [cashReceived, setCashReceived] = useState("");
+  const [billingSubmitting, setBillingSubmitting] = useState(false);
+  const [tenantCheckout, setTenantCheckout] = useState({ pixKey: "", deliveryFee: 0, cardFeePercent: 0 });
 
   const total = useMemo(() => Number(cart?.total || 0), [cart]);
   const subtotal = useMemo(() => Number(cart?.subtotal || 0), [cart]);
-  const deliveryFee = useMemo(() => 0, []);
-  const totalWithDelivery = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
+  const deliveryFee = useMemo(() => (mode === "DELIVERY" ? Number(tenantCheckout.deliveryFee || 0) : 0), [mode, tenantCheckout.deliveryFee]);
+  const cardFeeAmount = useMemo(() => {
+    if (!["CREDIT", "DEBIT"].includes(pay)) return 0;
+    const percent = Number(tenantCheckout.cardFeePercent || 0);
+    if (!percent) return 0;
+    return ((subtotal + deliveryFee) * percent) / 100;
+  }, [pay, subtotal, deliveryFee, tenantCheckout.cardFeePercent]);
+  const totalWithDelivery = useMemo(() => subtotal + deliveryFee + cardFeeAmount, [subtotal, deliveryFee, cardFeeAmount]);
 
   async function init() {
     setErr("");
     setLoading(true);
     try {
-      const [ps, cs, c] = await Promise.all([
+      const [ps, cs, c, tenantData] = await Promise.all([
         listPdvProducts(),
         listCategories({ active: "true" }).catch(() => []),
-        createCart()
+        createCart(),
+        getTenantMe().catch(() => null)
       ]);
       setProducts(ps);
       setCategories(cs);
       setCartId(c.cartId);
       setCart(await getCart(c.cartId));
+      if (tenantData?.checkoutSettings) {
+        setTenantCheckout({
+          pixKey: tenantData.checkoutSettings.pixKey || "",
+          deliveryFee: Number(tenantData.checkoutSettings.deliveryFee || 0),
+          cardFeePercent: Number(tenantData.checkoutSettings.cardFeePercent || 0)
+        });
+      }
       setSearch("");
       setCatId("ALL");
       setComanda(String(Math.floor(Math.random() * 900) + 100));
@@ -226,13 +246,27 @@ export default function Pdv() {
 
   async function finalizeSale() {
     try {
+      setBillingSubmitting(true);
+      if (pay === "CASH" && needChange) {
+        const received = Number(cashReceived || 0);
+        const due = Number(totalWithDelivery || total || 0);
+        if (!Number.isFinite(received) || received < due) {
+          toast.error("Valor recebido deve ser maior ou igual ao total");
+          setBillingSubmitting(false);
+          return;
+        }
+      }
+
       const closed = await checkout(cartId, pay, {
         customerName,
         customerPhone,
         customerAddress,
         customerReference,
+        customerNotes,
         comanda,
-        mode
+        mode,
+        deliveryFee,
+        cardFeeAmount
       });
       saveHistory({
         id: closed.id,
@@ -242,11 +276,14 @@ export default function Pdv() {
         payment: pay
       });
       setStatusStep(ORDER_STATUS.length - 1);
-      window.print();
+      setBillingOpen(false);
+      setTimeout(() => window.print(), 120);
       init();
     } catch (e) {
       setErr(e.message);
       toast.error(e.message);
+    } finally {
+      setBillingSubmitting(false);
     }
   }
 
@@ -262,6 +299,11 @@ export default function Pdv() {
             </button>
           ))}
           <div className="pdv-toolbar-actions">
+            <select className="select pdv-inline-select" value={deliveryPerson} onChange={(e) => setDeliveryPerson(e.target.value)}>
+              <option value="Renato Almeida">Entregador: Renato Almeida</option>
+              <option value="Carlos">Entregador: Carlos</option>
+              <option value="Equipe">Entregador: Equipe</option>
+            </select>
             <button className="btn" title="Menu">Menu</button>
             <button className="btn" title="Novo carrinho" onClick={init}>Novo</button>
           </div>
@@ -272,13 +314,6 @@ export default function Pdv() {
             <div className="pdv-left-title">({mode})</div>
             <div className="pdv-left-meta">Pedido N: {cartId ? cartId.slice(0, 8) : "--"}</div>
             <div className="pdv-left-meta">Tempo: {runningTime}</div>
-
-            <div style={{ marginTop: 14 }} className="section-title">ENTREGADOR</div>
-            <select className="select" value={deliveryPerson} onChange={(e) => setDeliveryPerson(e.target.value)}>
-              <option value="Renato Almeida">Renato Almeida</option>
-              <option value="Carlos">Carlos</option>
-              <option value="Equipe">Equipe</option>
-            </select>
 
             <div className="pdv-left-actions">
               <button className="btn" onClick={init}>Excluir Pedido</button>
@@ -329,11 +364,11 @@ export default function Pdv() {
           </div>
 
           <div className="pdv-form-grid">
-            <label>Telefone</label>
-            <input className="input" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-
             <label>Cliente</label>
             <input className="input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nao informado" />
+
+            <label>Telefone</label>
+            <input className="input" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
 
             <label>Endereco</label>
             <input className="input" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} />
@@ -341,17 +376,14 @@ export default function Pdv() {
             <label>Referencia</label>
             <input className="input" value={customerReference} onChange={(e) => setCustomerReference(e.target.value)} />
 
+            <label>Forma de pagamento</label>
+            <div className="state">{pay}</div>
+
+            <label>Observacoes</label>
+            <textarea className="input" rows={2} value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} placeholder="Observacoes do pedido" />
+
             <label>Comanda</label>
             <input className="input" value={comanda} onChange={(e) => setComanda(e.target.value)} />
-
-            <label>Forma de pagamento</label>
-            <select className="select" value={pay} onChange={(e) => setPay(e.target.value)}>
-              <option value="PIX">PIX</option>
-              <option value="CASH">Dinheiro</option>
-              <option value="CREDIT">Credito</option>
-              <option value="DEBIT">Debito</option>
-              <option value="MEAL_VOUCHER">Vale</option>
-            </select>
           </div>
 
           <div className="section-title" style={{ marginTop: 4 }}>Resumo do pedido</div>
@@ -375,32 +407,14 @@ export default function Pdv() {
           <div className="pdv-total-breakdown">
             <div>Subtotal: {money(subtotal)}</div>
             <div>Entrega: {money(deliveryFee)}</div>
+            <div>Taxa cartao: {money(cardFeeAmount)}</div>
             <div className="pdv-total-main">Total: {money(totalWithDelivery || total)}</div>
           </div>
 
           <div className="pdv-action-row">
             <button className="btn" disabled={!cart?.items?.length} onClick={() => window.print()}>Imprimir</button>
             <button className="btn" disabled={!cart?.items?.length} onClick={sendToKitchen}>Enviar cozinha</button>
-            <button className="btn btn-primary" disabled={!cart?.items?.length} onClick={finalizeSale}>Pagamento / Finalizar</button>
-          </div>
-
-          <div className="section-title" style={{ marginTop: 12 }}>Status</div>
-          <div className="pdv-status-list">
-            {ORDER_STATUS.map((item, idx) => (
-              <div key={item} className={`pdv-status-item ${idx === statusStep ? "active" : ""}`}>
-                <span className="pdv-status-dot" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="section-title" style={{ marginTop: 12 }}>Historico rapido</div>
-          <div className="list" style={{ marginTop: 8 }}>
-            {history.length === 0 ? <div className="state">Sem vendas recentes.</div> : history.map((h) => (
-              <div key={h.id} className="state">
-                {h.id.slice(0, 8)} - {money(h.total)} - {h.payment}
-              </div>
-            ))}
+            <button className="btn btn-primary" disabled={!cart?.items?.length} onClick={() => setBillingOpen(true)}>Faturar pagamento</button>
           </div>
           </aside>
         </div>
@@ -415,6 +429,7 @@ export default function Pdv() {
         <div>{customerPhone || "-"}</div>
         <div>{customerAddress || "-"}</div>
         <div>{customerReference || "-"}</div>
+        <div>{customerNotes || "-"}</div>
         <div>Comanda: {comanda || "-"}</div>
         <div>Entregador: {deliveryPerson || "-"}</div>
         <div className="print-center">(Pedido N.: {cartId ? cartId.slice(0, 8) : "--"})</div>
@@ -444,8 +459,10 @@ export default function Pdv() {
         <hr />
         <div className="print-line"><b>TOTAL:</b><b>{moneyPlain(subtotal || 0)}</b></div>
         <div className="print-line"><b>+ ENTREGA:</b><b>{moneyPlain(deliveryFee || 0)}</b></div>
+        <div className="print-line"><b>+ TAXA CARTAO:</b><b>{moneyPlain(cardFeeAmount || 0)}</b></div>
         <div className="print-line"><b>= TOTAL A PAGAR:</b><b>{moneyPlain(totalWithDelivery || total || 0)}</b></div>
         <div className="print-line"><b>PAGAMENTO:</b><b>{pay}</b></div>
+        {pay === "PIX" && tenantCheckout.pixKey ? <div className="print-line"><b>CHAVE PIX:</b><b>{tenantCheckout.pixKey}</b></div> : null}
         <hr />
         <div>Usuario: {customerName || "operador"}</div>
         <div className="print-center">* Obrigado pela preferencia! *</div>
@@ -507,6 +524,55 @@ export default function Pdv() {
               </div>
             </>
           ) : null}
+        </div>
+      </Modal>
+
+      <Modal open={billingOpen} title="Faturar pagamento" onClose={() => setBillingOpen(false)}>
+        <div className="grid">
+          <div className="field-help">
+            <div className="section-title">Forma de pagamento</div>
+            <select className="select" value={pay} onChange={(e) => setPay(e.target.value)}>
+              <option value="PIX">PIX</option>
+              <option value="CASH">Dinheiro</option>
+              <option value="CREDIT">Credito</option>
+              <option value="DEBIT">Debito</option>
+              <option value="MEAL_VOUCHER">Vale</option>
+            </select>
+          </div>
+          {pay === "PIX" && tenantCheckout.pixKey ? (
+            <div className="state">
+              Chave PIX: <b>{tenantCheckout.pixKey}</b>
+            </div>
+          ) : null}
+
+          {pay === "CASH" ? (
+            <>
+              <label className="inline">
+                <input type="checkbox" checked={needChange} onChange={(e) => setNeedChange(e.target.checked)} />
+                Tem troco?
+              </label>
+              {needChange ? (
+                <div className="field-help">
+                  <div className="section-title">Valor recebido</div>
+                  <input className="input" value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} placeholder="Ex.: 100,00" />
+                  <div className="muted">
+                    Troco: {money(Math.max(0, Number(cashReceived || 0) - Number(totalWithDelivery || total || 0)))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          <div className="state">
+            Total a faturar: <b>{money(totalWithDelivery || total || 0)}</b>
+          </div>
+
+          <div className="inline">
+            <button className="btn btn-primary" onClick={finalizeSale} disabled={billingSubmitting}>
+              {billingSubmitting ? "Finalizando..." : "Finalizar"}
+            </button>
+            <button className="btn" onClick={() => setBillingOpen(false)}>Cancelar</button>
+          </div>
         </div>
       </Modal>
     </div>

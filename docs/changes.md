@@ -1,40 +1,49 @@
-# Changelog v4.0.0
+# Changelog v5.0.0-alpha
 
-Data: 2026-02-19
+Data: 2026-02-28
 
-## Front (ERP/PDV/Cozinha)
+## Destaques
 
-- Tema com suporte a variacao `magenta` e `corporate-blue`.
-- PDV com impressao de comanda melhorada (itens, modifiers e observacoes).
-- PDV envia metadados no checkout: cliente, telefone, endereco, referencia, comanda e modo.
-- Produtos:
-  - configuracao de pizza com descricoes por sabor;
-  - ficha tecnica via modal com campos guiados;
-  - ficha tecnica aceita insumo e produto base.
-- Estoque: cadastro de insumo via modal com descricoes de campo.
-- Cozinha:
-  - cards com resumo + dropdown de detalhes;
-  - exibicao de notes/modifiers;
-  - telefone, pagamento, atalho WhatsApp e atalho Google Maps.
+- Cardapio digital mobile com fluxo completo:
+  - home por tenant em `/t/:slug`
+  - menu em `/t/:slug/menu`
+  - produto com montagem de pizza (tamanho + sabores)
+  - carrinho com CRUD (somar, reduzir, remover, limpar)
+  - checkout com dados do cliente
+  - tela final de status do pedido em `/t/:slug/order/:id`
+- Cozinha com monitoramento ativo:
+  - polling automatico
+  - alerta sonoro para novo pedido
+  - auto impressao de comanda (opcional)
+- Unificacao de logica de montagem:
+  - PDV e cardapio usam o mesmo builder (`orderBuilder`)
+- Checkout com regras do estabelecimento:
+  - chave PIX
+  - taxa de entrega
+  - taxa de cartao
+  - refletido no ERP, PDV e cardapio digital
+- Upload de imagens do dispositivo:
+  - logo do tenant
+  - imagem de produto
+  - mantido suporte por URL
 
 ## API
 
-- `GET /api/kitchen/orders` agora retorna `items.modifiers` e `payments`.
-- `POST /api/pdv/checkout` persiste dados de cliente/endereco/comanda/origem do pedido.
-- `GET/PUT /api/products/:id/recipe` ampliado para suportar:
-  - `inventoryItemId` (insumo)
-  - `ingredientProductId` (produto base/semiacabado)
-- `orderStateMachine` com baixa de estoque recursiva para ficha tecnica multinivel.
+- `POST /api/menu/:slug/orders` agora aceita dados de cliente e taxas de checkout.
+- `POST /api/pdv/checkout` agora aceita `deliveryFee` e `cardFeeAmount`.
+- `GET /api/menu/:slug` e `GET /api/tenant/me` retornam `checkoutSettings`.
+- Padrao de tratamento de erro aplicado nas rotas principais com fallback para `503` em `P1001`.
 
-## Banco (Prisma)
+## Banco e regras
 
-- `ProductPizzaFlavor.description` adicionado.
-- `RecipeItem` agora suporta ingrediente por produto base (`ingredientProductId`) alem de insumo.
-- Relacoes adicionais em `Product` para uso como ingrediente de outro produto.
+- Fluxo de pedido confirmado segue disparando baixa de estoque/CMV pelo state machine.
+- Normalizacao de telefone/endereco para persistencia e integracoes (WhatsApp/Maps).
 
 ## Versoes
 
-- `api/package.json`: `4.0.0`
-- `front-pdr-erp/package.json`: `4.0.0`
-- `front-cardapio/package.json`: `4.0.0`
-- Banner da API atualizado para `v4.0.0`.
+- `package.json`: `5.0.0-alpha`
+- `api/package.json`: `5.0.0-alpha`
+- `front-pdr-erp/package.json`: `5.0.0-alpha`
+- `front-cardapio/package.json`: `5.0.0-alpha`
+- Banner da API: `v5.0.0-alpha`
+

@@ -19,6 +19,7 @@ export const login = (email, password) =>
   req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
 
 export const getTenantMe = () => req("/api/tenant/me");
+export const updateTenantMe = (body) => req("/api/tenant/me", { method: "PATCH", body: JSON.stringify(body) });
 
 export const listInventory = () => req("/api/inventory/items");
 export const createInventory = (body) => req("/api/inventory/items", { method: "POST", body: JSON.stringify(body) });
@@ -70,6 +71,10 @@ export const sendConversationMessage = (id, body) => req(`/api/conversations/${i
 export const listOrdersSimple = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
   return req(`/api/orders${qs ? `?${qs}` : ""}`);
+};
+export const getOrdersDashboard = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return req(`/api/orders/dashboard${qs ? `?${qs}` : ""}`);
 };
 
 export const listKitchenOrders = (params = {}) => {

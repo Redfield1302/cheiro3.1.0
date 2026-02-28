@@ -17,3 +17,5 @@ export const getProduct = (slug, id) => req(`/api/menu/${slug}/products/${id}`);
 
 export const createOrder = (slug, payload) =>
   req(`/api/menu/${slug}/orders`, { method: "POST", body: JSON.stringify(payload) });
+
+export const getOrder = (id) => req(`/api/menu/orders/${id}`);

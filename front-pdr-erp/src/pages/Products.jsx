@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createCategory,
   createProduct,
@@ -40,6 +40,8 @@ function parseDecimal(v) {
 
 export default function Products() {
   const toast = useToast();
+  const newImageFileRef = useRef(null);
+  const editImageFileRef = useRef(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -69,6 +71,13 @@ export default function Products() {
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [recipeIngredientOpen, setRecipeIngredientOpen] = useState(false);
   const [recipeDraft, setRecipeDraft] = useState({ ingredientType: "INVENTORY", inventoryItemId: "", ingredientProductId: "", quantity: "" });
+
+  function readFileAsDataUrl(file, onDone) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onDone(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
 
   async function refresh() {
     setErr("");
@@ -336,6 +345,18 @@ export default function Products() {
             <label className="inline"><input type="checkbox" checked={isPizza} onChange={(e) => setIsPizza(e.target.checked)} /> Produto pizza fracionada</label>
             <Input value={cost} onChange={(e) => setCost(e.target.value)} placeholder="custo (opcional)" />
             <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="foto (url)" />
+            <input
+              ref={newImageFileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => readFileAsDataUrl(e.target.files?.[0], setImageUrl)}
+            />
+            <div className="inline">
+              <Button onClick={() => newImageFileRef.current?.click()}>Selecionar imagem do dispositivo</Button>
+              <Button variant="ghost" onClick={() => setImageUrl("")}>Limpar</Button>
+            </div>
+            {imageUrl ? <img src={imageUrl} alt="Preview produto" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 10 }} /> : null}
             <Button variant="primary" onClick={() => saveProduct().catch((e) => setErr(e.message))}>Salvar</Button>
           </div>
         </Card>
@@ -363,6 +384,18 @@ export default function Products() {
                   <label className="inline"><input type="checkbox" checked={Boolean(edit.isPizza)} onChange={(e) => setEdit({ ...edit, isPizza: e.target.checked })} /> Produto pizza fracionada</label>
                   <Input value={edit.cost} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="custo" />
                   <Input value={edit.imageUrl} onChange={(e) => setEdit({ ...edit, imageUrl: e.target.value })} placeholder="foto (url)" />
+                  <input
+                    ref={editImageFileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => readFileAsDataUrl(e.target.files?.[0], (v) => setEdit({ ...edit, imageUrl: v }))}
+                  />
+                  <div className="inline">
+                    <Button onClick={() => editImageFileRef.current?.click()}>Selecionar imagem do dispositivo</Button>
+                    <Button variant="ghost" onClick={() => setEdit({ ...edit, imageUrl: "" })}>Limpar</Button>
+                  </div>
+                  {edit.imageUrl ? <img src={edit.imageUrl} alt="Preview produto" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 10 }} /> : null}
                   <div className="inline">
                     <Button variant="primary" onClick={saveEdit}>Salvar</Button>
                     <Button onClick={() => setEditingId(null)}>Cancelar</Button>

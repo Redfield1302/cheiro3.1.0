@@ -348,6 +348,9 @@ model Order {
   subtotal    Float? // soma dos itens
   deliveryFee Float? // taxa entrega
   discount    Float? // desconto/cupom
+  cmvTotal    Float?
+  grossMarginValue   Float?
+  grossMarginPercent Float?
   total       Float
 
   createdAt DateTime @default(now())
@@ -374,6 +377,10 @@ model OrderItem {
   quantity   Int
   unitPrice  Float
   totalPrice Float
+  cmvUnit    Float?
+  cmvTotal   Float?
+  marginValue   Float?
+  marginPercent Float?
   notes      String?
 
   modifiers OrderItemModifier[]

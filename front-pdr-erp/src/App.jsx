@@ -6,6 +6,7 @@ import Inventory from "./pages/Inventory.jsx";
 import Products from "./pages/Products.jsx";
 import Categories from "./pages/Categories.jsx";
 import Orders from "./pages/Orders.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import Kitchen from "./pages/Kitchen.jsx";
 import Conversations from "./pages/Conversations.jsx";
 import TenantSettings from "./pages/TenantSettings.jsx";
@@ -43,7 +44,8 @@ export default function App() {
               </AuthGuard>
             }
           >
-            <Route index element={<Navigate to="/pdv" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Dashboard /></RoleGuard>} />
             <Route path="/pdv" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Pdv /></RoleGuard>} />
             <Route path="/cash" element={<RoleGuard roles={["ADMIN","MANAGER","CASHIER"]}><Cash /></RoleGuard>} />
             <Route path="/inventory" element={<RoleGuard roles={["ADMIN","MANAGER"]}><Inventory /></RoleGuard>} />

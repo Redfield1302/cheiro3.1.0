@@ -44,6 +44,7 @@ a { color: inherit; text-decoration: none; }
   position: sticky;
   top: 0;
   height: 100vh;
+  z-index: 20;
 }
 
 .brand {
@@ -107,6 +108,14 @@ a { color: inherit; text-decoration: none; }
 
 .topbar .title { font-size: 20px; font-weight: 600; }
 
+.mobile-menu-btn {
+  display: none;
+}
+
+.mobile-overlay {
+  display: none;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -166,6 +175,30 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-cards {
+  display: none;
+  gap: 8px;
+}
+
+.table-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #23101a;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.table-card-row {
+  display: grid;
+  gap: 2px;
 }
 
 .table th, .table td {
@@ -299,9 +332,15 @@ a { color: inherit; text-decoration: none; }
   gap: 8px;
 }
 
+.pdv-inline-select {
+  max-width: 230px;
+  min-width: 190px;
+  padding: 6px 10px;
+}
+
 .pdv-layout {
   display: grid;
-  grid-template-columns: 180px minmax(520px, 1.65fr) minmax(320px, 0.95fr);
+  grid-template-columns: 170px minmax(560px, 1.55fr) minmax(430px, 1.1fr);
   gap: 8px;
 }
 
@@ -390,8 +429,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pdv-comanda-list {
-  min-height: 160px;
-  max-height: 210px;
+  min-height: 280px;
+  max-height: 420px;
   overflow: auto;
   display: grid;
   gap: 6px;
@@ -460,7 +499,7 @@ a { color: inherit; text-decoration: none; }
 
 .pdv-right-panel {
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr auto auto;
   gap: 8px;
   padding: 10px;
 }
@@ -681,10 +720,58 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 1100px) {
   .app { grid-template-columns: 1fr; }
-  .sidebar { position: relative; height: auto; }
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: min(300px, 82vw);
+    transform: translateX(-102%);
+    transition: transform 180ms ease;
+    box-shadow: var(--shadow);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .mobile-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    border: 0;
+    z-index: 10;
+  }
+  .mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    font-size: 20px;
+  }
+  .topbar-right {
+    gap: 6px !important;
+  }
+  .topbar-right .badge {
+    display: none;
+  }
+  .topbar-right .select {
+    width: 150px !important;
+  }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .pdv-products-grid { grid-template-columns: repeat(2, 1fr); }
   .kitchen-board { grid-template-columns: 1fr; }
+  .btn {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .table-wrap {
+    display: none;
+  }
+  .table-cards {
+    display: grid;
+  }
 }
 
 @media (max-width: 700px) {
@@ -699,6 +786,14 @@ a { color: inherit; text-decoration: none; }
   .modal {
     width: 98vw;
     max-height: 94vh;
+  }
+  .pdv-layout {
+    overflow-x: hidden;
+  }
+  .pdv-categories,
+  .pdv-products-grid,
+  .pdv-comanda-list {
+    -webkit-overflow-scrolling: touch;
   }
   .pizza-rule-row {
     flex-direction: column;

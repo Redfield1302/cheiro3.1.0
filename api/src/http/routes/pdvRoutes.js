@@ -2,36 +2,56 @@ const express = require("express");
 const { PrismaClient, OrderStatus, PaymentMethod, PaymentStatus } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 const { transitionOrderState } = require("../../core/orderStateMachine");
-const { calculatePizzaLine } = require("../../core/pizzaPricing");
+const { addItemToOrder, recalcOrderTotals } = require("../../core/orderBuilder");
+const { normalizePhoneForStorage, normalizeAddressForStorage } = require("../../core/contactUtils");
 
 const router = express.Router();
 const prisma = new PrismaClient();
+function handleRouteError(res, scope, e) {
+  console.error(`${scope}_error`, e);
+  if (e?.code === "P1001") {
+    return res.status(503).json({ error: "Banco indisponivel no momento. Tente novamente." });
+  }
+  return res.status(500).json({ error: "Falha interna no PDV" });
+}
 
 router.get("/products", auth, async (req, res) => {
-  const tenantId = req.user.tenantId;
-  const products = await prisma.product.findMany({
-    where: { tenantId, active: true },
-    include: { categoryRef: true },
-    orderBy: [{ categoryId: "asc" }, { name: "asc" }]
-  });
-  res.json(products);
+  try {
+    const tenantId = req.user.tenantId;
+    const products = await prisma.product.findMany({
+      where: { tenantId, active: true },
+      include: { categoryRef: true },
+      orderBy: [{ categoryId: "asc" }, { name: "asc" }]
+    });
+    return res.json(products);
+  } catch (e) {
+    return handleRouteError(res, "pdv_products", e);
+  }
 });
 
 router.post("/cart", auth, async (req, res) => {
-  const tenantId = req.user.tenantId;
-  const order = await prisma.order.create({
-    data: { tenantId, source: "PDV", status: OrderStatus.OPEN, total: 0, subtotal: 0 }
-  });
-  res.json({ cartId: order.id });
+  try {
+    const tenantId = req.user.tenantId;
+    const order = await prisma.order.create({
+      data: { tenantId, source: "PDV", status: OrderStatus.OPEN, total: 0, subtotal: 0 }
+    });
+    return res.json({ cartId: order.id });
+  } catch (e) {
+    return handleRouteError(res, "pdv_create_cart", e);
+  }
 });
 
 router.get("/cart/:cartId", auth, async (req, res) => {
-  const order = await prisma.order.findUnique({
-    where: { id: req.params.cartId },
-    include: { items: { include: { modifiers: true } } }
-  });
-  if (!order) return res.status(404).json({ error: "Carrinho nao encontrado" });
-  res.json(order);
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.cartId },
+      include: { items: { include: { modifiers: true } } }
+    });
+    if (!order) return res.status(404).json({ error: "Carrinho nao encontrado" });
+    return res.json(order);
+  } catch (e) {
+    return handleRouteError(res, "pdv_get_cart", e);
+  }
 });
 
 router.post("/cart/:cartId/items", auth, async (req, res) => {
@@ -45,62 +65,19 @@ router.post("/cart/:cartId/items", auth, async (req, res) => {
       if (!order || order.tenantId !== tenantId) return { error: "Carrinho invalido", status: 404 };
       if (order.status !== OrderStatus.OPEN) return { error: "Carrinho nao esta OPEN", status: 400 };
 
-      const product = await tx.product.findUnique({ where: { id: productId } });
-      if (!product || product.tenantId !== tenantId) return { error: "Produto nao encontrado", status: 404 };
-
-      const q = Number(quantity || 1);
-
-      let lineName = product.name;
-      let unitPrice = Number(product.price);
-      let totalPrice = unitPrice * q;
-      let notes = null;
-      let pizzaModifiers = [];
-
-      if (product.isPizza) {
-        const pizzaLine = await calculatePizzaLine(tx, { tenantId, product, quantity: q, pizza });
-        lineName = pizzaLine.name;
-        unitPrice = pizzaLine.unitPrice;
-        totalPrice = pizzaLine.totalPrice;
-        // Evita duplicidade: os sabores ja vao como modifiers.
-        notes = null;
-        pizzaModifiers = pizzaLine.modifiers;
-      }
-
-      const item = await tx.orderItem.create({
-        data: {
-          orderId: req.params.cartId,
+      const item = await addItemToOrder(tx, {
+        tenantId,
+        orderId: req.params.cartId,
+        itemInput: {
           productId,
-          name: lineName,
-          quantity: q,
-          unitPrice,
-          totalPrice,
-          notes
+          quantity,
+          pizza
         }
       });
 
-      for (const pm of pizzaModifiers) {
-        await tx.orderItemModifier.create({
-          data: {
-            orderItemId: item.id,
-            groupName: pm.groupName,
-            name: pm.name,
-            quantity: pm.quantity,
-            price: pm.price,
-            groupId: pm.groupId,
-            optionId: pm.optionId
-          }
-        });
-      }
+      const updatedOrder = await recalcOrderTotals(tx, req.params.cartId);
 
-      const items = await tx.orderItem.findMany({ where: { orderId: req.params.cartId } });
-      const subtotal = items.reduce((s, it) => s + it.totalPrice, 0);
-
-      await tx.order.update({
-        where: { id: req.params.cartId },
-        data: { subtotal, total: subtotal }
-      });
-
-      return { itemId: item.id, subtotal };
+      return { itemId: item.id, subtotal: updatedOrder.subtotal };
     });
 
     if (result.error) return res.status(result.status).json({ error: result.error });
@@ -111,20 +88,19 @@ router.post("/cart/:cartId/items", auth, async (req, res) => {
 });
 
 router.delete("/cart/:cartId/items/:itemId", auth, async (req, res) => {
-  await prisma.$transaction(async (tx) => {
-    await tx.orderItemModifier.deleteMany({ where: { orderItemId: req.params.itemId } });
-    await tx.orderItem.delete({ where: { id: req.params.itemId } });
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItemModifier.deleteMany({ where: { orderItemId: req.params.itemId } });
+      await tx.orderItem.delete({ where: { id: req.params.itemId } });
+      await recalcOrderTotals(tx, req.params.cartId);
+    });
 
-  const items = await prisma.orderItem.findMany({ where: { orderId: req.params.cartId } });
-  const subtotal = items.reduce((s, it) => s + it.totalPrice, 0);
+    const order = await prisma.order.findUnique({ where: { id: req.params.cartId } });
 
-  await prisma.order.update({
-    where: { id: req.params.cartId },
-    data: { subtotal, total: subtotal }
-  });
-
-  res.json({ ok: true, subtotal });
+    return res.json({ ok: true, subtotal: order?.subtotal || 0 });
+  } catch (e) {
+    return handleRouteError(res, "pdv_delete_item", e);
+  }
 });
 
 router.post("/checkout", auth, async (req, res) => {
@@ -136,79 +112,110 @@ router.post("/checkout", auth, async (req, res) => {
     customerAddress,
     customerReference,
     comanda,
-    mode
+    mode,
+    deliveryFee = 0,
+    cardFeeAmount = 0
   } = req.body || {};
   if (!cartId) return res.status(400).json({ error: "cartId obrigatorio" });
   if (!Object.values(PaymentMethod).includes(paymentMethod)) return res.status(400).json({ error: "paymentMethod invalido" });
 
   const tenantId = req.user.tenantId;
 
-  const result = await prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({ where: { id: cartId }, include: { items: true } });
-    if (!order || order.tenantId !== tenantId) return { error: "Pedido invalido", status: 404 };
-    if (order.status !== OrderStatus.OPEN) return { error: "Pedido nao esta OPEN", status: 400 };
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: cartId }, include: { items: true } });
+      if (!order || order.tenantId !== tenantId) return { error: "Pedido invalido", status: 404 };
+      if (order.status !== OrderStatus.OPEN) {
+        if (order.status === OrderStatus.CONFIRMED) return { updated: order, idempotent: true };
+        return { error: "Pedido nao esta OPEN", status: 400 };
+      }
 
-    let customerId = null;
-    const phone = String(customerPhone || "").trim() || null;
-    const name = String(customerName || "").trim() || "Nao informado";
+      const deliveryFeeValue = Number.isFinite(Number(deliveryFee)) ? Number(deliveryFee) : 0;
+      const cardFeeValue = Number.isFinite(Number(cardFeeAmount)) ? Number(cardFeeAmount) : 0;
+      const subtotalValue = Number(order.subtotal || 0);
+      const finalTotal = subtotalValue + Math.max(0, deliveryFeeValue) + Math.max(0, cardFeeValue);
 
-    if (phone) {
-      const customer = await tx.customer.upsert({
-        where: { tenantId_phone: { tenantId, phone } },
-        update: { name },
-        create: { tenantId, name, phone }
-      });
-      customerId = customer.id;
-    } else if (name && name !== "Nao informado") {
-      const customer = await tx.customer.create({
-        data: { tenantId, name, phone: null }
-      });
-      customerId = customer.id;
-    }
+      let customerId = null;
+      const phone = normalizePhoneForStorage(customerPhone);
+      const name = String(customerName || "").trim() || "Nao informado";
 
-    let addressId = null;
-    const streetRaw = String(customerAddress || "").trim();
-    const referenceRaw = String(customerReference || "").trim();
-    if (streetRaw || referenceRaw) {
-      const createdAddress = await tx.address.create({
+      if (phone) {
+        const customer = await tx.customer.upsert({
+          where: { tenantId_phone: { tenantId, phone } },
+          update: { name },
+          create: { tenantId, name, phone }
+        });
+        customerId = customer.id;
+      } else if (name && name !== "Nao informado") {
+        const customer = await tx.customer.create({
+          data: { tenantId, name, phone: null }
+        });
+        customerId = customer.id;
+      }
+
+      let addressId = null;
+      const streetRaw = normalizeAddressForStorage(customerAddress);
+      const referenceRaw = normalizeAddressForStorage(customerReference);
+      if (streetRaw || referenceRaw) {
+        const createdAddress = await tx.address.create({
+          data: {
+            tenantId,
+            customerId,
+            street: streetRaw || "Nao informado",
+            city: "Nao informado",
+            state: "NA",
+            reference: referenceRaw || null
+          }
+        });
+        addressId = createdAddress.id;
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
         data: {
-          tenantId,
           customerId,
-          street: streetRaw || "Nao informado",
-          city: "Nao informado",
-          state: "NA",
-          reference: referenceRaw || null
+          addressId,
+          displayId: comanda ? String(comanda).trim() : order.displayId,
+          source: mode ? String(mode).trim() : order.source,
+          deliveryFee: Math.max(0, deliveryFeeValue),
+          total: finalTotal
         }
       });
-      addressId = createdAddress.id;
-    }
 
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        customerId,
-        addressId,
-        displayId: comanda ? String(comanda).trim() : order.displayId,
-        source: mode ? String(mode).trim() : order.source
+      const paidAlready = await tx.payment.findFirst({
+        where: { orderId: order.id, status: PaymentStatus.PAID }
+      });
+      if (!paidAlready) {
+        await tx.payment.create({
+          data: { orderId: order.id, method: paymentMethod, amount: finalTotal, status: PaymentStatus.PAID }
+        });
       }
-    });
 
-    await tx.payment.create({
-      data: { orderId: order.id, method: paymentMethod, amount: order.total, status: PaymentStatus.PAID }
-    });
+      let updated;
+      try {
+        updated = await transitionOrderState(tx, {
+          orderId: order.id,
+          toStatus: OrderStatus.CONFIRMED,
+          actorUserId: req.user.sub,
+          extraPayload: { paymentMethod }
+        });
+      } catch (err) {
+        if (err?.code === "INVALID_TRANSITION") {
+          const current = await tx.order.findUnique({ where: { id: order.id } });
+          if (current?.status === OrderStatus.CONFIRMED) return { updated: current, idempotent: true };
+        }
+        throw err;
+      }
 
-    const updated = await transitionOrderState(tx, {
-      orderId: order.id,
-      toStatus: OrderStatus.CONFIRMED,
-      actorUserId: req.user.sub,
-      extraPayload: { paymentMethod }
-    });
+      return { updated };
+    }, { timeout: 20000, maxWait: 10000 });
 
-    return { updated };
-  });
-
-  if (result.error) return res.status(result.status).json({ error: result.error });
-  res.json(result.updated);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    return res.json(result.updated);
+  } catch (e) {
+    console.error("checkout_error", e);
+    return res.status(500).json({ error: e?.message || "Falha ao finalizar checkout" });
+  }
 });
 
 module.exports = router;

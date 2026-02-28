@@ -1,70 +1,109 @@
 const express = require("express");
 const { PrismaClient, PaymentStatus, PaymentMethod, OrderStatus } = require("@prisma/client");
-const { calculatePizzaLine } = require("../../core/pizzaPricing");
+const { transitionOrderState } = require("../../core/orderStateMachine");
+const { addItemToOrder, recalcOrderTotals } = require("../../core/orderBuilder");
+const { normalizePhoneForStorage, normalizeAddressForStorage } = require("../../core/contactUtils");
 
 const router = express.Router();
 const prisma = new PrismaClient();
+function handleRouteError(res, scope, e) {
+  console.error(`${scope}_error`, e);
+  if (e?.code === "P1001") {
+    return res.status(503).json({ error: "Banco indisponivel no momento. Tente novamente." });
+  }
+  return res.status(500).json({ error: "Falha interna no menu" });
+}
 
 // GET /api/menu/:slug
 router.get("/:slug", async (req, res) => {
-  const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
-  if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
-
-  res.json({ tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug, logoUrl: tenant.logoUrl } });
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
+    if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
+    const rules = tenant.rulesJson || {};
+    const checkout = rules.checkout || {};
+    return res.json({
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        logoUrl: tenant.logoUrl,
+        rulesJson: rules,
+        checkoutSettings: {
+          pixKey: String(checkout.pixKey || ""),
+          deliveryFee: Number(checkout.deliveryFee || 0),
+          cardFeePercent: Number(checkout.cardFeePercent || 0)
+        }
+      }
+    });
+  } catch (e) {
+    return handleRouteError(res, "menu_tenant", e);
+  }
 });
 
 // GET /api/menu/:slug/categories
 router.get("/:slug/categories", async (req, res) => {
-  const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
-  if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
+    if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
 
-  const categories = await prisma.productCategory.findMany({
-    where: { tenantId: tenant.id, active: true },
-    orderBy: [{ sort: "asc" }, { name: "asc" }]
-  });
-  res.json({ categories });
+    const categories = await prisma.productCategory.findMany({
+      where: { tenantId: tenant.id, active: true },
+      orderBy: [{ sort: "asc" }, { name: "asc" }]
+    });
+    return res.json({ categories });
+  } catch (e) {
+    return handleRouteError(res, "menu_categories", e);
+  }
 });
 
 // GET /api/menu/:slug/products?categoryId=
 router.get("/:slug/products", async (req, res) => {
-  const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
-  if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
+    if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
 
-  const where = { tenantId: tenant.id, active: true };
-  if (req.query.categoryId) where.categoryId = String(req.query.categoryId);
+    const where = { tenantId: tenant.id, active: true };
+    if (req.query.categoryId) where.categoryId = String(req.query.categoryId);
 
-  const products = await prisma.product.findMany({
-    where,
-    include: {
-      categoryRef: true
-    },
-    orderBy: [{ createdAt: "desc" }]
-  });
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        categoryRef: true
+      },
+      orderBy: [{ createdAt: "desc" }]
+    });
 
-  res.json({ products });
+    return res.json({ products });
+  } catch (e) {
+    return handleRouteError(res, "menu_products", e);
+  }
 });
 
 // GET /api/menu/:slug/products/:id
 router.get("/:slug/products/:id", async (req, res) => {
-  const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
-  if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
+    if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
 
-  const product = await prisma.product.findFirst({
-    where: { id: req.params.id, tenantId: tenant.id },
-    include: {
-      categoryRef: true,
-      modifierGroups: { include: { options: true }, orderBy: { sort: "asc" } },
-      pizzaSizes: { where: { tenantId: tenant.id, active: true }, orderBy: [{ sort: "asc" }, { name: "asc" }] },
-      pizzaFlavors: {
-        where: { tenantId: tenant.id, active: true },
-        orderBy: [{ sort: "asc" }, { name: "asc" }],
-        include: { prices: { include: { size: true } } }
+    const product = await prisma.product.findFirst({
+      where: { id: req.params.id, tenantId: tenant.id },
+      include: {
+        categoryRef: true,
+        modifierGroups: { include: { options: true }, orderBy: { sort: "asc" } },
+        pizzaSizes: { where: { tenantId: tenant.id, active: true }, orderBy: [{ sort: "asc" }, { name: "asc" }] },
+        pizzaFlavors: {
+          where: { tenantId: tenant.id, active: true },
+          orderBy: [{ sort: "asc" }, { name: "asc" }],
+          include: { prices: { include: { size: true } } }
+        }
       }
-    }
-  });
+    });
 
-  if (!product) return res.status(404).json({ error: "Produto nao encontrado" });
-  res.json({ product });
+    if (!product) return res.status(404).json({ error: "Produto nao encontrado" });
+    return res.json({ product });
+  } catch (e) {
+    return handleRouteError(res, "menu_product", e);
+  }
 });
 
 // POST /api/menu/:slug/orders
@@ -72,19 +111,28 @@ router.post("/:slug/orders", async (req, res) => {
   const tenant = await prisma.tenant.findUnique({ where: { slug: req.params.slug } });
   if (!tenant) return res.status(404).json({ error: "Tenant nao encontrado" });
 
-  const { items = [], paymentMethod = "PIX" } = req.body || {};
+  const {
+    items = [],
+    paymentMethod = "PIX",
+    customerName,
+    customerPhone,
+    customerAddress,
+    customerReference,
+    mode,
+    notes,
+    deliveryFee = 0,
+    cardFeeAmount = 0
+  } = req.body || {};
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "items invalido" });
 
   const method = Object.values(PaymentMethod).includes(paymentMethod) ? paymentMethod : PaymentMethod.PIX;
 
   try {
     const created = await prisma.$transaction(async (tx) => {
-      let subtotal = 0;
-
       const order = await tx.order.create({
         data: {
           tenantId: tenant.id,
-          source: "MENU",
+          source: mode ? String(mode).trim() : "MENU",
           status: OrderStatus.OPEN,
           subtotal: 0,
           total: 0
@@ -92,95 +140,100 @@ router.post("/:slug/orders", async (req, res) => {
       });
 
       for (const it of items) {
-        const product = await tx.product.findFirst({ where: { id: it.productId, tenantId: tenant.id } });
-        if (!product) continue;
-
-        const qty = Number(it.quantity || 1);
-
-        let lineName = product.name;
-        let unitPrice = Number(product.price);
-        let totalPrice = unitPrice * qty;
-        let notes = it.notes || null;
-        let pizzaModifiers = [];
-
-        if (product.isPizza) {
-          const pizzaLine = await calculatePizzaLine(tx, {
-            tenantId: tenant.id,
-            product,
-            quantity: qty,
-            pizza: it.pizza
-          });
-          lineName = pizzaLine.name;
-          unitPrice = pizzaLine.unitPrice;
-          totalPrice = pizzaLine.totalPrice;
-          notes = notes ? `${notes} | ${pizzaLine.notesSuffix}` : pizzaLine.notesSuffix;
-          pizzaModifiers = pizzaLine.modifiers;
-        }
-
-        subtotal += totalPrice;
-
-        const orderItem = await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            productId: product.id,
-            name: lineName,
-            quantity: qty,
-            unitPrice,
-            totalPrice,
-            notes
+        await addItemToOrder(tx, {
+          tenantId: tenant.id,
+          orderId: order.id,
+          itemInput: {
+            productId: it.productId,
+            quantity: it.quantity,
+            pizza: it.pizza,
+            notes: it.notes || null,
+            modifiers: it.modifiers || []
           }
         });
-
-        for (const pm of pizzaModifiers) {
-          await tx.orderItemModifier.create({
-            data: {
-              orderItemId: orderItem.id,
-              groupName: pm.groupName,
-              name: pm.name,
-              quantity: pm.quantity,
-              price: pm.price,
-              groupId: pm.groupId,
-              optionId: pm.optionId
-            }
-          });
-        }
-
-        const mods = Array.isArray(it.modifiers) ? it.modifiers : [];
-        for (const m of mods) {
-          await tx.orderItemModifier.create({
-            data: {
-              orderItemId: orderItem.id,
-              groupName: m.groupName || "Opcoes",
-              name: m.name,
-              quantity: Number(m.quantity || 1),
-              price: Number(m.price || 0),
-              groupId: m.groupId || null,
-              optionId: m.optionId || null
-            }
-          });
-        }
       }
 
-      const updated = await tx.order.update({
-        where: { id: order.id },
-        data: { subtotal, total: subtotal }
+      const updated = await recalcOrderTotals(tx, order.id);
+
+      let customerId = null;
+      const phone = normalizePhoneForStorage(customerPhone);
+      const name = String(customerName || "").trim() || "Nao informado";
+
+      if (phone) {
+        const customer = await tx.customer.upsert({
+          where: { tenantId_phone: { tenantId: tenant.id, phone } },
+          update: { name },
+          create: { tenantId: tenant.id, name, phone }
+        });
+        customerId = customer.id;
+      } else if (name && name !== "Nao informado") {
+        const customer = await tx.customer.create({
+          data: { tenantId: tenant.id, name, phone: null }
+        });
+        customerId = customer.id;
+      }
+
+      let addressId = null;
+      const streetRaw = normalizeAddressForStorage(customerAddress);
+      const referenceRaw = normalizeAddressForStorage(customerReference);
+      if (streetRaw || referenceRaw) {
+        const createdAddress = await tx.address.create({
+          data: {
+            tenantId: tenant.id,
+            customerId,
+            street: streetRaw || "Nao informado",
+            city: "Nao informado",
+            state: "NA",
+            reference: referenceRaw || null
+          }
+        });
+        addressId = createdAddress.id;
+      }
+
+      const deliveryFeeParsed = Number(deliveryFee);
+      const cardFeeParsed = Number(cardFeeAmount);
+      const deliveryFeeValue = Math.max(0, Number.isFinite(deliveryFeeParsed) ? deliveryFeeParsed : 0);
+      const cardFeeValue = Math.max(0, Number.isFinite(cardFeeParsed) ? cardFeeParsed : 0);
+      const finalTotal = Number(updated.total || 0) + deliveryFeeValue + cardFeeValue;
+
+      const updatedWithCustomer = await tx.order.update({
+        where: { id: updated.id },
+        data: {
+          customerId,
+          addressId,
+          deliveryFee: deliveryFeeValue,
+          total: finalTotal
+        }
       });
 
       const payment = await tx.payment.create({
         data: {
-          orderId: updated.id,
+          orderId: updatedWithCustomer.id,
           method,
-          amount: updated.total,
-          status: PaymentStatus.PENDING,
-          provider: "PIX_FAKE",
-          externalId: "tx_" + Date.now(),
-          pixCode: "000201...FAKE",
-          pixExpiresAt: new Date(Date.now() + 15 * 60 * 1000)
+          amount: finalTotal,
+          status: PaymentStatus.PAID
         }
       });
 
-      return { order: updated, payment };
-    });
+      if (String(notes || "").trim()) {
+        await tx.orderEvent.create({
+          data: {
+            orderId: updatedWithCustomer.id,
+            type: "CUSTOMER_NOTES",
+            payload: { notes: String(notes).trim() }
+          }
+        });
+      }
+
+      const confirmed = await transitionOrderState(tx, {
+        orderId: updatedWithCustomer.id,
+        toStatus: OrderStatus.CONFIRMED,
+        reason: "menu_checkout",
+        extraPayload: { paymentMethod: method }
+      });
+
+      return { order: confirmed, payment };
+    }, { timeout: 30000, maxWait: 10000 });
 
     return res.status(201).json(created);
   } catch (e) {
@@ -189,28 +242,40 @@ router.post("/:slug/orders", async (req, res) => {
 });
 
 router.post("/payments/pix", async (req, res) => {
-  const { orderId } = req.body || {};
-  if (!orderId) return res.status(400).json({ error: "orderId obrigatorio" });
+  try {
+    const { orderId } = req.body || {};
+    if (!orderId) return res.status(400).json({ error: "orderId obrigatorio" });
 
-  const payment = await prisma.payment.findFirst({ where: { orderId } });
-  if (!payment) return res.status(404).json({ error: "Pagamento nao encontrado" });
+    const payment = await prisma.payment.findFirst({ where: { orderId } });
+    if (!payment) return res.status(404).json({ error: "Pagamento nao encontrado" });
 
-  res.json({ payment });
+    return res.json({ payment });
+  } catch (e) {
+    return handleRouteError(res, "menu_payment_pix", e);
+  }
 });
 
 router.get("/payments/:id", async (req, res) => {
-  const payment = await prisma.payment.findUnique({ where: { id: req.params.id } });
-  if (!payment) return res.status(404).json({ error: "Pagamento nao encontrado" });
-  res.json({ payment });
+  try {
+    const payment = await prisma.payment.findUnique({ where: { id: req.params.id } });
+    if (!payment) return res.status(404).json({ error: "Pagamento nao encontrado" });
+    return res.json({ payment });
+  } catch (e) {
+    return handleRouteError(res, "menu_payment_get", e);
+  }
 });
 
 router.get("/orders/:id", async (req, res) => {
-  const order = await prisma.order.findUnique({
-    where: { id: req.params.id },
-    include: { items: { include: { modifiers: true } }, payments: true }
-  });
-  if (!order) return res.status(404).json({ error: "Pedido nao encontrado" });
-  res.json({ order });
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { items: { include: { modifiers: true } }, payments: true }
+    });
+    if (!order) return res.status(404).json({ error: "Pedido nao encontrado" });
+    return res.json({ order });
+  } catch (e) {
+    return handleRouteError(res, "menu_order_get", e);
+  }
 });
 
 module.exports = router;
