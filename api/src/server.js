@@ -50,18 +50,27 @@ app.use((req, res) => res.status(404).json({ error: "Rota nao encontrada" }));
 async function start() {
   const prisma = new PrismaClient();
   await prisma.$connect();
+
   if (process.env.NODE_ENV === "development") {
     await ensureSeed(prisma);
   }
+
   await prisma.$disconnect();
 
   const HOST = process.env.HOST || "0.0.0.0";
 
-app.listen(PORT, HOST, () => {
-  console.log(`API v5.0.0-alpha rodando em http://${HOST}:${PORT}`);
-});
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`API v5.0.0-alpha rodando em http://${HOST}:${PORT}`);
+  });
 
-  app.listen(PORT, () => console.log(`API v5.0.0-alpha rodando em http://localhost:${PORT}`));
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`❌ Porta ${PORT} já está em uso. Verifique processo duplicado no container.`);
+      process.exit(1);
+    }
+    console.error("❌ Erro ao iniciar servidor:", err);
+    process.exit(1);
+  });
 }
 
 start();
