@@ -55,6 +55,12 @@ async function start() {
   }
   await prisma.$disconnect();
 
+  const HOST = process.env.HOST || "0.0.0.0";
+
+app.listen(PORT, HOST, () => {
+  console.log(`API v5.0.0-alpha rodando em http://${HOST}:${PORT}`);
+});
+
   app.listen(PORT, () => console.log(`API v5.0.0-alpha rodando em http://localhost:${PORT}`));
 }
 
