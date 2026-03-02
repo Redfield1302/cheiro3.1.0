@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 import Pdv from "./pages/Pdv.jsx";
 import Cash from "./pages/Cash.jsx";
 import Inventory from "./pages/Inventory.jsx";
@@ -35,6 +36,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/no-permission" element={<NoPermission />} />
           <Route
             path="/"

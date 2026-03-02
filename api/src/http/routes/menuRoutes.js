@@ -1,11 +1,11 @@
-const express = require("express");
-const { PrismaClient, PaymentStatus, PaymentMethod, OrderStatus } = require("@prisma/client");
+﻿const express = require("express");
+const { PaymentStatus, PaymentMethod, OrderStatus } = require("@prisma/client");
 const { transitionOrderState } = require("../../core/orderStateMachine");
 const { addItemToOrder, recalcOrderTotals } = require("../../core/orderBuilder");
 const { normalizePhoneForStorage, normalizeAddressForStorage } = require("../../core/contactUtils");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 function handleRouteError(res, scope, e) {
   console.error(`${scope}_error`, e);
   if (e?.code === "P1001") {
@@ -279,3 +279,5 @@ router.get("/orders/:id", async (req, res) => {
 });
 
 module.exports = router;
+
+

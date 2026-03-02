@@ -1,9 +1,9 @@
-const express = require("express");
-const { PrismaClient, CashMovementType } = require("@prisma/client");
+ï»¿const express = require("express");
+const { CashMovementType } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 router.get("/status", auth, async (req, res) => {
   const tenantId = req.user.tenantId;
@@ -26,7 +26,7 @@ router.post("/open", auth, async (req, res) => {
     where: { tenantId, closedAt: null },
     orderBy: { openedAt: "desc" }
   });
-  if (open) return res.status(400).json({ error: "Já existe caixa aberto" });
+  if (open) return res.status(400).json({ error: "JÃ¡ existe caixa aberto" });
 
   const cash = await prisma.cashRegister.create({
     data: { tenantId, userId: req.user.sub, openedAt: new Date(), openingAmount: Number(openingAmount) }
@@ -88,7 +88,7 @@ router.get("/movements", auth, async (req, res) => {
 router.post("/movements", auth, async (req, res) => {
   const tenantId = req.user.tenantId;
   const { type = "INCOME", amount, reason, meta } = req.body || {};
-  if (amount == null) return res.status(400).json({ error: "amount é obrigatório" });
+  if (amount == null) return res.status(400).json({ error: "amount Ã© obrigatÃ³rio" });
 
   const open = await prisma.cashRegister.findFirst({
     where: { tenantId, closedAt: null },
@@ -112,3 +112,5 @@ router.post("/movements", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

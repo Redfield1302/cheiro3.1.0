@@ -41,6 +41,17 @@ export default function Login() {
         <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
           Sessao persistente, tenant automatico.
         </div>
+        <div style={{ marginTop: 12 }}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              window.location.href = "/register";
+            }}
+          >
+            Criar conta
+          </Button>
+        </div>
       </Card>
     </div>
   );

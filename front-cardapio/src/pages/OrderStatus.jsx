@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getOrder } from "../lib/api";
 
@@ -27,6 +27,10 @@ export default function OrderStatus() {
   const nav = useNavigate();
   const [order, setOrder] = useState(null);
   const [err, setErr] = useState("");
+  const [countdown, setCountdown] = useState(8);
+
+  const status = order?.status;
+  const isFinished = status === "DELIVERED" || status === "CANCELED";
 
   async function refresh() {
     try {
@@ -38,13 +42,35 @@ export default function OrderStatus() {
     }
   }
 
+  function goHome() {
+    nav(`/t/${slug}`);
+  }
+
   useEffect(() => {
     refresh();
     const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
   }, [id]);
 
-  const humanStatus = useMemo(() => STATUS_LABEL[order?.status] || order?.status || "-", [order?.status]);
+  useEffect(() => {
+    if (!isFinished) {
+      setCountdown(8);
+      return;
+    }
+    const tick = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(tick);
+          goHome();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [isFinished]);
+
+  const humanStatus = useMemo(() => STATUS_LABEL[status] || status || "-", [status]);
 
   return (
     <div className="m-app">
@@ -64,8 +90,12 @@ export default function OrderStatus() {
         <section className="m-surface">
           <div className="m-status-hero">
             <div className="m-status-img">🍕</div>
-            <h2 className="m-status-title">Seu pedido esta em andamento</h2>
-            <div className="m-muted">Acompanhe a producao e entrega em tempo real.</div>
+            <h2 className="m-status-title">{isFinished ? "Pedido finalizado" : "Seu pedido esta em andamento"}</h2>
+            <div className="m-muted">
+              {isFinished
+                ? `Retornando para a home em ${countdown}s.`
+                : "Acompanhe a producao e entrega em tempo real."}
+            </div>
           </div>
           <div className="m-status-meta">
             <div className="m-row">
@@ -82,7 +112,7 @@ export default function OrderStatus() {
         <section className="m-surface">
           <div className="m-status-steps">
             {STATUS_STEPS.map((step) => {
-              const state = stepState(order?.status, step);
+              const state = stepState(status, step);
               return (
                 <article key={step} className={`m-status-step ${state}`}>
                   <div className="m-status-step-icon">
@@ -107,7 +137,10 @@ export default function OrderStatus() {
 
       <footer className="m-bottom-nav">
         <div className="m-bottom-row">
-          <button className="m-primary m-primary-block" onClick={refresh}>
+          <button className="m-mini-btn" onClick={goHome}>
+            Voltar para home
+          </button>
+          <button className="m-primary" onClick={refresh}>
             Atualizar status
           </button>
         </div>
@@ -115,4 +148,3 @@ export default function OrderStatus() {
     </div>
   );
 }
-

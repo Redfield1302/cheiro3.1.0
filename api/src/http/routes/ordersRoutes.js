@@ -1,13 +1,16 @@
 ﻿const express = require("express");
-const { PrismaClient } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 function handleRouteError(res, scope, e) {
   console.error(`${scope}_error`, e);
+  const message = String(e?.message || "");
   if (e?.code === "P1001") {
     return res.status(503).json({ error: "Banco indisponivel no momento. Tente novamente." });
+  }
+  if (message.includes("MaxClientsInSessionMode") || message.toLowerCase().includes("max clients reached")) {
+    return res.status(503).json({ error: "Limite de conexoes do banco atingido. Aguarde e tente novamente." });
   }
   return res.status(500).json({ error: "Falha interna ao processar pedidos" });
 }
@@ -134,3 +137,5 @@ router.get("/", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

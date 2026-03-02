@@ -9,6 +9,7 @@ import {
   listProducts,
   savePizzaConfig,
   saveProductRecipe,
+  updateCategory,
   updateProduct
 } from "../lib/api";
 import PageState from "../components/PageState.jsx";
@@ -36,6 +37,35 @@ function parseDecimal(v) {
   if (!raw) return NaN;
   const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
   return Number(normalized);
+}
+
+function fileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo de imagem"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Arquivo de imagem invalido"));
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function normalizeImageFile(file, { maxWidth = 1280, maxHeight = 1280, quality = 0.86 } = {}) {
+  const img = await fileToImage(file);
+  const ratio = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+  const width = Math.max(1, Math.round(img.width * ratio));
+  const height = Math.max(1, Math.round(img.height * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 export default function Products() {
@@ -71,12 +101,22 @@ export default function Products() {
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [recipeIngredientOpen, setRecipeIngredientOpen] = useState(false);
   const [recipeDraft, setRecipeDraft] = useState({ ingredientType: "INVENTORY", inventoryItemId: "", ingredientProductId: "", quantity: "" });
+  const [imageHint, setImageHint] = useState("");
 
-  function readFileAsDataUrl(file, onDone) {
+  async function handleDeviceImage(file, onDone) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => onDone(String(reader.result || ""));
-    reader.readAsDataURL(file);
+    const maxBytes = 2 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error("Imagem acima de 2 MB. Escolha um arquivo menor.");
+      return;
+    }
+    try {
+      const normalized = await normalizeImageFile(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.86 });
+      onDone(normalized);
+      setImageHint("Imagem ajustada para ate 1280px e salva em JPEG.");
+    } catch (e) {
+      toast.error(e.message);
+    }
   }
 
   async function refresh() {
@@ -102,6 +142,16 @@ export default function Products() {
     await createCategory({ name: catName, sort: 0, active: true });
     setCatName("");
     refresh();
+  }
+
+  async function removeCategory(categoryId) {
+    try {
+      await updateCategory(categoryId, { active: false });
+      toast.success("Categoria removida (desativada)");
+      refresh();
+    } catch (e) {
+      toast.error(e.message);
+    }
   }
 
   async function saveProduct() {
@@ -324,7 +374,15 @@ export default function Products() {
           </div>
           <div className="list" style={{ marginTop: 12 }}>
             {categories.length === 0 ? <EmptyState title="Sem categorias" /> : categories.map((c) => (
-              <Card key={c.id} style={{ padding: 10 }}>{c.name}</Card>
+              <Card key={c.id} style={{ padding: 10 }}>
+                <div className="inline" style={{ justifyContent: "space-between" }}>
+                  <div>
+                    <b>{c.name}</b>
+                    <div className="muted" style={{ fontSize: 12 }}>{c.active ? "Ativa" : "Inativa"}</div>
+                  </div>
+                  {c.active ? <Button onClick={() => removeCategory(c.id)}>Remover</Button> : null}
+                </div>
+              </Card>
             ))}
           </div>
         </Card>
@@ -333,6 +391,10 @@ export default function Products() {
           <div className="section-title">Novo produto</div>
           <div className="grid" style={{ marginTop: 10 }}>
             <Input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="nome" />
+            <div className="field-help">
+              <div className="section-title">Preco de venda</div>
+              <div className="muted" style={{ fontSize: 12 }}>Preco final cobrado do cliente no PDV e no cardapio digital.</div>
+            </div>
             <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="preco" />
             <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
               <option value="">Sem categoria</option>
@@ -350,12 +412,14 @@ export default function Products() {
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={(e) => readFileAsDataUrl(e.target.files?.[0], setImageUrl)}
+              onChange={(e) => handleDeviceImage(e.target.files?.[0], setImageUrl)}
             />
+            <div className="muted" style={{ fontSize: 12 }}>Imagem do dispositivo: max 2 MB. O sistema ajusta resolucao para web.</div>
             <div className="inline">
               <Button onClick={() => newImageFileRef.current?.click()}>Selecionar imagem do dispositivo</Button>
               <Button variant="ghost" onClick={() => setImageUrl("")}>Limpar</Button>
             </div>
+            {imageHint ? <div className="muted" style={{ fontSize: 12 }}>{imageHint}</div> : null}
             {imageUrl ? <img src={imageUrl} alt="Preview produto" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 10 }} /> : null}
             <Button variant="primary" onClick={() => saveProduct().catch((e) => setErr(e.message))}>Salvar</Button>
           </div>
@@ -389,12 +453,13 @@ export default function Products() {
                     type="file"
                     accept="image/*"
                     style={{ display: "none" }}
-                    onChange={(e) => readFileAsDataUrl(e.target.files?.[0], (v) => setEdit({ ...edit, imageUrl: v }))}
+                    onChange={(e) => handleDeviceImage(e.target.files?.[0], (v) => setEdit({ ...edit, imageUrl: v }))}
                   />
                   <div className="inline">
                     <Button onClick={() => editImageFileRef.current?.click()}>Selecionar imagem do dispositivo</Button>
                     <Button variant="ghost" onClick={() => setEdit({ ...edit, imageUrl: "" })}>Limpar</Button>
                   </div>
+                  <div className="muted" style={{ fontSize: 12 }}>Max 2 MB. Resolucao ajustada automaticamente.</div>
                   {edit.imageUrl ? <img src={edit.imageUrl} alt="Preview produto" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 10 }} /> : null}
                   <div className="inline">
                     <Button variant="primary" onClick={saveEdit}>Salvar</Button>

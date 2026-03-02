@@ -1,9 +1,9 @@
 ﻿const express = require("express");
-const { PrismaClient, InventoryMovementType } = require("@prisma/client");
+const { InventoryMovementType } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 function handleRouteError(res, scope, e) {
   console.error(`${scope}_error`, e);
@@ -113,3 +113,5 @@ router.get("/items/:id/movements", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

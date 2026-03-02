@@ -1,10 +1,9 @@
-const express = require("express");
+﻿const express = require("express");
 const { randomUUID } = require("crypto");
-const { PrismaClient } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 function parsePriceNumber(value) {
   if (value == null || value === "") return null;
@@ -435,3 +434,5 @@ router.put("/:id/recipe", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

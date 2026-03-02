@@ -1,9 +1,8 @@
 ﻿const express = require("express");
-const { PrismaClient } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 router.get("/me", auth, async (req, res) => {
   const tenant = await prisma.tenant.findUnique({ where: { id: req.user.tenantId } });
@@ -66,3 +65,5 @@ router.patch("/me", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

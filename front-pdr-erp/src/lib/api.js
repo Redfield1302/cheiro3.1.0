@@ -17,6 +17,8 @@ async function req(path, options = {}) {
 
 export const login = (email, password) =>
   req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+export const register = (body) =>
+  req("/api/auth/register", { method: "POST", body: JSON.stringify(body) });
 
 export const getTenantMe = () => req("/api/tenant/me");
 export const updateTenantMe = (body) => req("/api/tenant/me", { method: "PATCH", body: JSON.stringify(body) });

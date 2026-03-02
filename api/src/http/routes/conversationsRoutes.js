@@ -1,9 +1,9 @@
-const express = require("express");
-const { PrismaClient, MessageSender } = require("@prisma/client");
+ï»¿const express = require("express");
+const { MessageSender } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 // GET /api/conversations
 router.get("/", auth, async (req, res) => {
@@ -23,7 +23,7 @@ router.get("/:id", auth, async (req, res) => {
     where: { id: req.params.id },
     include: { messages: { orderBy: { createdAt: "asc" } }, customer: true }
   });
-  if (!conv || conv.tenantId !== tenantId) return res.status(404).json({ error: "Conversa não encontrada" });
+  if (!conv || conv.tenantId !== tenantId) return res.status(404).json({ error: "Conversa nÃ£o encontrada" });
   res.json(conv);
 });
 
@@ -31,10 +31,10 @@ router.get("/:id", auth, async (req, res) => {
 router.post("/:id/messages", auth, async (req, res) => {
   const tenantId = req.user.tenantId;
   const { content, sender = "HUMAN" } = req.body || {};
-  if (!content) return res.status(400).json({ error: "content é obrigatório" });
+  if (!content) return res.status(400).json({ error: "content Ã© obrigatÃ³rio" });
 
   const conv = await prisma.conversation.findUnique({ where: { id: req.params.id } });
-  if (!conv || conv.tenantId !== tenantId) return res.status(404).json({ error: "Conversa não encontrada" });
+  if (!conv || conv.tenantId !== tenantId) return res.status(404).json({ error: "Conversa nÃ£o encontrada" });
 
   const s = Object.values(MessageSender).includes(sender) ? sender : MessageSender.HUMAN;
   const msg = await prisma.message.create({
@@ -49,3 +49,5 @@ router.post("/:id/messages", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

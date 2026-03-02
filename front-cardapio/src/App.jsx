@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home.jsx";
-import Menu from "./pages/menu.jsx";
+import Menu from "./pages/Menu.jsx";
 import Product from "./pages/Product.jsx";
 import Cart from "./pages/Cart.jsx";
 import OrderStatus from "./pages/OrderStatus.jsx";

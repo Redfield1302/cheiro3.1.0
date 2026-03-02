@@ -20,7 +20,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
 app.get("/health", (req, res) => res.json({ status: "ok", ts: new Date().toISOString() }));
 
@@ -37,12 +38,21 @@ app.use("/api/orders", ordersRoutes);
 app.use("/api/conversations", conversationsRoutes);
 app.use("/api/kitchen", kitchenRoutes);
 
+app.use((err, req, res, next) => {
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({ error: "Payload muito grande. Limite de 5MB por requisicao." });
+  }
+  return next(err);
+});
+
 app.use((req, res) => res.status(404).json({ error: "Rota nao encontrada" }));
 
 async function start() {
   const prisma = new PrismaClient();
   await prisma.$connect();
-  await ensureSeed(prisma);
+  if (process.env.NODE_ENV === "development") {
+    await ensureSeed(prisma);
+  }
   await prisma.$disconnect();
 
   app.listen(PORT, () => console.log(`API v5.0.0-alpha rodando em http://localhost:${PORT}`));

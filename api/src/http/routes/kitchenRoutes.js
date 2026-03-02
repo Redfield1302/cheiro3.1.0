@@ -1,10 +1,10 @@
-const express = require("express");
-const { PrismaClient, OrderStatus } = require("@prisma/client");
+﻿const express = require("express");
+const { OrderStatus } = require("@prisma/client");
 const { auth } = require("../middlewares/auth");
 const { transitionOrderState } = require("../../core/orderStateMachine");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 function parseStatuses(raw) {
   if (!raw) return [OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DISPATCHED];
@@ -85,3 +85,5 @@ router.patch("/orders/:id/status", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+

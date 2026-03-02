@@ -1,9 +1,8 @@
-const express = require("express");
-const { PrismaClient } = require("@prisma/client");
+ï»¿const express = require("express");
 const { auth } = require("../middlewares/auth");
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const { prisma } = require("../../lib/prisma");
 
 router.get("/", auth, async (req, res) => {
   const tenantId = req.user.tenantId;
@@ -21,7 +20,7 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   const tenantId = req.user.tenantId;
   const { name, sort = 0, active = true } = req.body || {};
-  if (!name) return res.status(400).json({ error: "name é obrigatório" });
+  if (!name) return res.status(400).json({ error: "name Ã© obrigatÃ³rio" });
 
   const cat = await prisma.productCategory.create({
     data: { tenantId, name, sort: Number(sort), active: Boolean(active) }
@@ -35,7 +34,7 @@ router.patch("/:id", auth, async (req, res) => {
   const { name, sort, active } = req.body || {};
 
   const cat = await prisma.productCategory.findUnique({ where: { id: req.params.id } });
-  if (!cat || cat.tenantId !== tenantId) return res.status(404).json({ error: "Categoria não encontrada" });
+  if (!cat || cat.tenantId !== tenantId) return res.status(404).json({ error: "Categoria nÃ£o encontrada" });
 
   const updated = await prisma.productCategory.update({
     where: { id: cat.id },
@@ -50,3 +49,5 @@ router.patch("/:id", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+
