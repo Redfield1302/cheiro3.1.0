@@ -10,7 +10,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/t/:slug" element={<Home />} />
-        <Route path="/t/:slug/menu" element={<Menu />} />
+        <Route path="/t/:slug/Menu" element={<Menu />} />
         <Route path="/t/:slug/p/:id" element={<Product />} />
         <Route path="/t/:slug/cart" element={<Cart />} />
         <Route path="/t/:slug/order/:id" element={<OrderStatus />} />
