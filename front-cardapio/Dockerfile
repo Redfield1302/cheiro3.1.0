@@ -1,11 +1,10 @@
 FROM node:20-bookworm-slim AS build
-
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+
+COPY package.json ./
+RUN npm install
 
 COPY . .
-ENV NODE_OPTIONS=--max-old-space-size=1024
 RUN npm run build
 
 FROM nginx:1.27-alpine
