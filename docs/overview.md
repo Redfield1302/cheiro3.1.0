@@ -1,6 +1,6 @@
 # Visao Geral
 
-Cheiro3 v5.0.0-alpha e um monorepo com tres apps:
+Cheiro3 v6.0.0 e um monorepo com tres apps:
 
 - API: Node.js + Express + Prisma (PostgreSQL)
 - front-cardapio: cardapio digital mobile e checkout publico (React + Vite)
@@ -10,6 +10,7 @@ Cheiro3 v5.0.0-alpha e um monorepo com tres apps:
 
 - Multi-tenant: dados isolados por `tenantId`.
 - Auth no ERP/PDV por JWT.
+- Auth no modulo de entregas por JWT dedicado de entregador.
 - Cardapio digital com rotas publicas por slug (`/t/:slug`).
 - Reuso de regra de negocio:
   - montagem de item/pizza compartilhada entre PDV e cardapio (`orderBuilder`)
@@ -21,6 +22,7 @@ Cheiro3 v5.0.0-alpha e um monorepo com tres apps:
 2. Pedido entra na mesma API/banco do ERP.
 3. Cozinha acompanha status e atualiza producao.
 4. PDV e cozinha refletem o mesmo pedido em tempo real por polling.
+5. Entregador acompanha pedidos READY/DISPATCHED no kanban de entregas.
 
 ## Checkout do estabelecimento
 
@@ -38,6 +40,5 @@ Esses dados refletem em:
 
 ## Versao atual
 
-- API banner: `v5.0.0-alpha`
-- Monorepo e frontends: `v5.0.0-alpha`
-
+- API banner: `v6.0.0`
+- Monorepo e frontends: `v6.0.0`

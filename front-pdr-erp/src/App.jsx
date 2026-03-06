@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
+import DeliveryLogin from "./pages/DeliveryLogin.jsx";
+import DeliveryBoard from "./pages/DeliveryBoard.jsx";
 import Pdv from "./pages/Pdv.jsx";
 import Cash from "./pages/Cash.jsx";
 import Inventory from "./pages/Inventory.jsx";
@@ -37,6 +39,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/delivery/login" element={<DeliveryLogin />} />
+          <Route path="/delivery/board" element={<DeliveryBoard />} />
           <Route path="/no-permission" element={<NoPermission />} />
           <Route
             path="/"

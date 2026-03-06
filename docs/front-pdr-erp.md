@@ -5,6 +5,8 @@ App: `front-pdr-erp`
 ## Rotas principais
 
 - `/login`
+- `/delivery/login`
+- `/delivery/board`
 - `/dashboard`
 - `/pdv`
 - `/cash`
@@ -35,11 +37,17 @@ App: `front-pdr-erp`
   - taxa de cartao
   - horarios de funcionamento.
 - Produtos com upload de imagem local (alem de URL).
+- Modulo de entregas separado:
+  - login dedicado (entregador)
+  - sem acesso ao PDV/ERP
+  - kanban simples com colunas READY e DISPATCHED
+  - acao de assumir entrega e marcar como entregue.
 
 ## Sessao
 
 - LocalStorage: `cg_session_v3`
 - Estrutura: token + user + tenant
+- Entregas: `cg_delivery_session_v1`
 
 ## API principal usada
 
@@ -47,9 +55,9 @@ App: `front-pdr-erp`
 - Tenant: `GET/PATCH /api/tenant/me`
 - PDV: `/api/pdv/*`
 - Cozinha: `/api/kitchen/*`
+- Entregas: `/api/delivery/*`
 - Produtos/Categorias: `/api/products/*`, `/api/categories/*`
 - Estoque: `/api/inventory/*`
 - Caixa: `/api/cash/*`
 - Pedidos: `/api/orders/*`
 - Atendimento: `/api/conversations/*`
-

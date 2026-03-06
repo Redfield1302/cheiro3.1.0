@@ -15,6 +15,19 @@ function normalizeSlug(input) {
     .replace(/^-|-$/g, "");
 }
 
+function buildTenantMenuLinks(tenant) {
+  const rawBase = String(process.env.MENU_BASE_URL || "").trim();
+  const base = rawBase ? rawBase.replace(/\/+$/, "") : "";
+  const slugPath = `/t/${tenant.slug}`;
+  const slugPathWithId = `/t/${tenant.slug}?tenantId=${encodeURIComponent(tenant.id)}`;
+  return {
+    slugPath,
+    slugPathWithId,
+    slugUrl: base ? `${base}${slugPath}` : slugPath,
+    slugUrlWithId: base ? `${base}${slugPathWithId}` : slugPathWithId
+  };
+}
+
 router.post("/register", async (req, res) => {
   const {
     tenantName,
@@ -95,19 +108,20 @@ router.post("/register", async (req, res) => {
       id: result.tenant.id,
       name: result.tenant.name,
       slug: result.tenant.slug
-    }
+    },
+    menuLinks: buildTenantMenuLinks(result.tenant)
   });
 });
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "email e password sÃ£o obrigatÃ³rios" });
+  if (!email || !password) return res.status(400).json({ error: "email e password sao obrigatorios" });
 
   const user = await prisma.user.findUnique({ where: { email }, include: { tenant: true } });
-  if (!user) return res.status(401).json({ error: "Credenciais invÃ¡lidas" });
+  if (!user) return res.status(401).json({ error: "Credenciais invalidas" });
 
   const ok = await bcrypt.compare(password, user.password);
-  if (!ok) return res.status(401).json({ error: "Credenciais invÃ¡lidas" });
+  if (!ok) return res.status(401).json({ error: "Credenciais invalidas" });
 
   const token = jwt.sign(
     { sub: user.id, tenantId: user.tenantId, role: user.role, email: user.email },
@@ -118,7 +132,8 @@ router.post("/login", async (req, res) => {
   res.json({
     token,
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    tenant: { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug }
+    tenant: { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug },
+    menuLinks: buildTenantMenuLinks(user.tenant)
   });
 });
 

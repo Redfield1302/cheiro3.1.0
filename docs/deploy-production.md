@@ -31,9 +31,9 @@ docker compose --profile prod up -d --build
 ```
 
 Serviços esperados:
-- API: `http://localhost:3000`
-- ERP: `http://localhost:8080`
-- Cardápio: `http://localhost:8081`
+- API: exposta via Traefik (`API_DOMAIN`)
+- ERP: exposta via Traefik (`ERP_DOMAIN`)
+- Cardápio: exposto via Traefik (`MENU_DOMAIN`)
 
 ## 4. Migrações do banco
 
@@ -43,7 +43,36 @@ Após subir a API, aplique migrações:
 docker compose --profile prod exec api npx prisma migrate deploy
 ```
 
-## 5. Reverse proxy e HTTPS (recomendado)
+## 5. Deploy com EasyPanel + Traefik
+
+O `docker-compose.yml` já foi adaptado para Traefik com labels nos serviços de produção (`api`, `erp`, `cardapio`).
+
+Variáveis obrigatórias para roteamento:
+
+```env
+API_DOMAIN=api.seudominio.com
+ERP_DOMAIN=erp.seudominio.com
+MENU_DOMAIN=menu.seudominio.com
+```
+
+Requisitos:
+- A rede externa `traefik-public` deve existir no host.
+- O Traefik deve estar conectado nessa rede.
+- EntryPoint HTTPS em `websecure`.
+
+Criar rede (uma vez):
+
+```bash
+docker network create traefik-public
+```
+
+Exemplo de deploy no EasyPanel:
+
+```bash
+docker compose --profile prod up -d --build
+```
+
+## 6. Reverse proxy e HTTPS (geral)
 
 Publique os serviços atrás de Nginx/Traefik/Caddy:
 
@@ -53,7 +82,7 @@ Publique os serviços atrás de Nginx/Traefik/Caddy:
 
 Ative TLS (Let's Encrypt) e headers de segurança.
 
-## 6. Onboarding inicial (sem seed fixo)
+## 7. Onboarding inicial (sem seed fixo)
 
 Com a aplicação no ar:
 
@@ -61,7 +90,7 @@ Com a aplicação no ar:
 - Cadastre o estabelecimento (tenant) e o usuário admin.
 - Faça login com o novo usuário.
 
-## 7. Operação e manutenção
+## 8. Operação e manutenção
 
 Comandos úteis:
 
@@ -80,7 +109,7 @@ docker compose --profile prod up -d --build
 docker compose --profile prod exec api npx prisma migrate deploy
 ```
 
-## 8. Checklist de produção
+## 9. Checklist de produção
 
 - `NODE_ENV=production`
 - `JWT_SECRET` forte

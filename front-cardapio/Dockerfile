@@ -1,8 +1,8 @@
-FROM node:20-bookworm-slim AS build
+FROM node:20.19.0-bookworm-slim AS build
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package*.json ./
+RUN npm ci
 
 COPY . .
 RUN npm run build

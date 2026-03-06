@@ -1,49 +1,52 @@
-# Changelog v5.0.0-alpha
+# Changelog v6.0.0
 
-Data: 2026-02-28
+Data: 2026-03-03
 
 ## Destaques
 
-- Cardapio digital mobile com fluxo completo:
-  - home por tenant em `/t/:slug`
-  - menu em `/t/:slug/menu`
-  - produto com montagem de pizza (tamanho + sabores)
-  - carrinho com CRUD (somar, reduzir, remover, limpar)
-  - checkout com dados do cliente
-  - tela final de status do pedido em `/t/:slug/order/:id`
-- Cozinha com monitoramento ativo:
-  - polling automatico
-  - alerta sonoro para novo pedido
-  - auto impressao de comanda (opcional)
-- Unificacao de logica de montagem:
-  - PDV e cardapio usam o mesmo builder (`orderBuilder`)
-- Checkout com regras do estabelecimento:
-  - chave PIX
-  - taxa de entrega
-  - taxa de cartao
-  - refletido no ERP, PDV e cardapio digital
-- Upload de imagens do dispositivo:
-  - logo do tenant
-  - imagem de produto
-  - mantido suporte por URL
+- Novo modulo de entregas separado do PDV/ERP:
+  - login exclusivo para entregador
+  - pagina simples em kanban para acompanhar pedidos
+  - entregador so visualiza pedidos do proprio tenant
+  - sem acesso as rotas internas do ERP.
+- Fluxo de entrega:
+  - pedidos `READY` ficam disponiveis para assumir
+  - ao assumir, pedido vai para `DISPATCHED`
+  - entregador finaliza em `DELIVERED`.
+- Onboarding SaaS melhorado:
+  - cadastro (`/api/auth/register`) retorna links do cardapio digital
+  - link inclui id do estabelecimento para distribuicao.
 
 ## API
 
-- `POST /api/menu/:slug/orders` agora aceita dados de cliente e taxas de checkout.
-- `POST /api/pdv/checkout` agora aceita `deliveryFee` e `cardFeeAmount`.
-- `GET /api/menu/:slug` e `GET /api/tenant/me` retornam `checkoutSettings`.
-- Padrao de tratamento de erro aplicado nas rotas principais com fallback para `503` em `P1001`.
+- Adicionado namespace `delivery`:
+  - `POST /api/delivery/auth/login`
+  - `GET /api/delivery/orders`
+  - `PATCH /api/delivery/orders/:id/claim`
+  - `PATCH /api/delivery/orders/:id/status`
+  - `POST /api/delivery/agents`
+- `POST /api/auth/register` agora retorna `menuLinks`.
 
-## Banco e regras
+## Banco (Prisma)
 
-- Fluxo de pedido confirmado segue disparando baixa de estoque/CMV pelo state machine.
-- Normalizacao de telefone/endereco para persistencia e integracoes (WhatsApp/Maps).
+- `DeliveryPerson` agora pertence a `Tenant`:
+  - novo campo `tenantId`
+  - relacao com `Tenant`
+  - unicidade por tenant: `@@unique([tenantId, email])`
+- Migration: `api/prisma/migrations/20260303001000_delivery_person_tenant/migration.sql`
+
+## Front ERP
+
+- Novas rotas:
+  - `/delivery/login`
+  - `/delivery/board`
+- Sessao dedicada para entregas:
+  - localStorage: `cg_delivery_session_v1`
 
 ## Versoes
 
-- `package.json`: `5.0.0-alpha`
-- `api/package.json`: `5.0.0-alpha`
-- `front-pdr-erp/package.json`: `5.0.0-alpha`
-- `front-cardapio/package.json`: `5.0.0-alpha`
-- Banner da API: `v5.0.0-alpha`
-
+- `package.json`: `6.0.0`
+- `api/package.json`: `6.0.0`
+- `front-pdr-erp/package.json`: `6.0.0`
+- `front-cardapio/package.json`: `6.0.0`
+- Banner da API: `v6.0.0`

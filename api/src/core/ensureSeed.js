@@ -23,6 +23,22 @@ async function ensureSeed(prisma) {
     });
   }
 
+  let deliveryPerson = await prisma.deliveryPerson.findFirst({
+    where: { tenantId: tenant.id, email: "entregador@test.com" }
+  });
+  if (!deliveryPerson) {
+    const hashDelivery = await bcrypt.hash("entrega123", 10);
+    deliveryPerson = await prisma.deliveryPerson.create({
+      data: {
+        tenantId: tenant.id,
+        name: "Entregador Demo",
+        email: "entregador@test.com",
+        password: hashDelivery,
+        phone: "5511999990000"
+      }
+    });
+  }
+
   // categories
   const catCount = await prisma.productCategory.count({ where: { tenantId: tenant.id } });
   if (catCount === 0) {
@@ -49,7 +65,7 @@ async function ensureSeed(prisma) {
     });
   }
 
-  return { tenant, admin };
+  return { tenant, admin, deliveryPerson };
 }
 
 module.exports = { ensureSeed };

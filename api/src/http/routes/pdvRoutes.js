@@ -23,6 +23,7 @@ router.get("/products", auth, async (req, res) => {
       include: { categoryRef: true },
       orderBy: [{ categoryId: "asc" }, { name: "asc" }]
     });
+    console.log(req.user);
     return res.json(products);
   } catch (e) {
     return handleRouteError(res, "pdv_products", e);

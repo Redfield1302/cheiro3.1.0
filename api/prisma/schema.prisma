@@ -101,6 +101,7 @@ model Tenant {
   pizzaSizes ProductPizzaSize[]
   pizzaFlavors ProductPizzaFlavor[]
   pizzaFlavorPrices ProductPizzaFlavorPrice[]
+  deliveryPeople DeliveryPerson[]
 
 }
 
@@ -530,8 +531,11 @@ model RecipeItem {
 //
 model DeliveryPerson {
   id       String  @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   name     String
-  email    String  @unique
+  email    String
   password String
   phone    String?
 
@@ -539,6 +543,8 @@ model DeliveryPerson {
   updatedAt DateTime @updatedAt
 
   deliveries Delivery[]
+
+  @@unique([tenantId, email])
 }
 
 model Delivery {

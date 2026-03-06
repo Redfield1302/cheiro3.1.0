@@ -51,6 +51,16 @@ export default function Login() {
           >
             Criar conta
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              window.location.href = "/delivery/login";
+            }}
+            style={{ marginLeft: 8 }}
+          >
+            Login entregador
+          </Button>
         </div>
       </Card>
     </div>

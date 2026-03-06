@@ -29,6 +29,14 @@ export default function Kitchen() {
   const seenOrderIdsRef = useRef(new Set());
   const firstLoadRef = useRef(true);
 
+  function shouldRenderItemNotes(item) {
+    const notes = String(item?.notes || "").trim();
+    if (!notes) return false;
+    const hasModifiers = Array.isArray(item?.modifiers) && item.modifiers.length > 0;
+    if (hasModifiers && /^pizza\b/i.test(notes)) return false;
+    return true;
+  }
+
   function playNotificationSound() {
     if (!soundEnabled) return;
     try {
@@ -55,6 +63,17 @@ export default function Kitchen() {
         window.print();
       } catch (_e) {
         toast.error("Falha ao abrir impressao automatica.");
+      }
+    }, 120);
+  }
+
+  function printOrderNow(order) {
+    setPrintOrder(order);
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (_e) {
+        toast.error("Falha ao abrir impressao.");
       }
     }, 120);
   }
@@ -196,7 +215,7 @@ export default function Kitchen() {
                 <div>
                   <b>{it.quantity}x {it.name}</b>
                   <div className="muted">{money(it.unitPrice)} x {it.quantity}</div>
-                  {it.notes ? <div className="kitchen-item-notes">obs: {it.notes}</div> : null}
+                  {shouldRenderItemNotes(it) ? <div className="kitchen-item-notes">obs: {it.notes}</div> : null}
                   {(it.modifiers || []).length > 0 ? (
                     <div className="kitchen-item-modifiers">
                       {(it.modifiers || []).map((m) => (
@@ -212,6 +231,7 @@ export default function Kitchen() {
         </details>
 
         <div className="kitchen-actions">
+          <Button onClick={() => printOrderNow(order)}>Imprimir</Button>
           {next.map((s) => (
             <Button
               key={s}
@@ -304,7 +324,7 @@ export default function Kitchen() {
                   + {m.quantity}x {m.name}
                 </div>
               ))}
-              {it.notes ? <div className="print-notes-line">obs: {it.notes}</div> : null}
+              {shouldRenderItemNotes(it) ? <div className="print-notes-line">obs: {it.notes}</div> : null}
             </div>
           ))}
           <hr />

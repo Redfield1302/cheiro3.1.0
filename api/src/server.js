@@ -1,4 +1,4 @@
-require("dotenv").config();
+﻿require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
@@ -15,6 +15,7 @@ const tenantRoutes = require("./http/routes/tenantRoutes");
 const ordersRoutes = require("./http/routes/ordersRoutes");
 const conversationsRoutes = require("./http/routes/conversationsRoutes");
 const kitchenRoutes = require("./http/routes/kitchenRoutes");
+const deliveryRoutes = require("./http/routes/deliveryRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/conversations", conversationsRoutes);
 app.use("/api/kitchen", kitchenRoutes);
+app.use("/api/delivery", deliveryRoutes);
 
 app.use((err, req, res, next) => {
   if (err?.type === "entity.too.large") {
@@ -60,15 +62,15 @@ async function start() {
   const HOST = process.env.HOST || "0.0.0.0";
 
   const server = app.listen(PORT, HOST, () => {
-    console.log(`API v5.0.0-alpha rodando em http://${HOST}:${PORT}`);
+    console.log(`API v6.0.0 rodando em http://${HOST}:${PORT}`);
   });
 
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
-      console.error(`❌ Porta ${PORT} já está em uso. Verifique processo duplicado no container.`);
+      console.error(`Porta ${PORT} ja esta em uso. Verifique processo duplicado no container.`);
       process.exit(1);
     }
-    console.error("❌ Erro ao iniciar servidor:", err);
+    console.error("Erro ao iniciar servidor:", err);
     process.exit(1);
   });
 }

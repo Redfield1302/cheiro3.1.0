@@ -1,4 +1,4 @@
-# Cheio Gestor v5.0.0-alpha (Monorepo)
+# Cheio Gestor v6.0.0 (Monorepo)
 
 ## Documentacao
 
@@ -7,6 +7,7 @@
 - Banco/Prisma: `docs/database.md`
 - Front Cardapio: `docs/front-cardapio.md`
 - Front ERP/PDV: `docs/front-pdr-erp.md`
+- Deploy: `docs/deploy.md`
 - Changelog: `docs/changes.md`
 - Setup completo: `docs/setup.md`
 

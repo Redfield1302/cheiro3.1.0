@@ -89,3 +89,32 @@ export const updateKitchenOrderStatus = (id, toStatus, reason = "kitchen_ui") =>
     method: "PATCH",
     body: JSON.stringify({ toStatus, reason })
   });
+
+async function reqDelivery(path, tokenValue, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (tokenValue) headers.set("Authorization", `Bearer ${tokenValue}`);
+  if (options.body && !headers.get("Content-Type")) headers.set("Content-Type", "application/json");
+
+  const res = await fetch(path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+  return data;
+}
+
+export const deliveryLogin = (email, password) =>
+  reqDelivery("/api/delivery/auth/login", null, {
+    method: "POST",
+    body: JSON.stringify({ email, password })
+  });
+
+export const listDeliveryOrders = (tokenValue) =>
+  reqDelivery("/api/delivery/orders", tokenValue);
+
+export const claimDeliveryOrder = (tokenValue, orderId) =>
+  reqDelivery(`/api/delivery/orders/${orderId}/claim`, tokenValue, { method: "PATCH" });
+
+export const updateDeliveryOrderStatus = (tokenValue, orderId, toStatus) =>
+  reqDelivery(`/api/delivery/orders/${orderId}/status`, tokenValue, {
+    method: "PATCH",
+    body: JSON.stringify({ toStatus })
+  });

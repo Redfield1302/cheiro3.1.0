@@ -5,6 +5,9 @@ Base URL (dev): `http://localhost:3000`
 ## Auth
 
 - `POST /api/auth/login`
+- `POST /api/auth/register`
+  - cria tenant + usuario ADMIN
+  - retorna `menuLinks` com link do cardapio contendo id do estabelecimento
 - Header nas rotas protegidas:
   - `Authorization: Bearer <token>`
 
@@ -67,6 +70,19 @@ Base URL (dev): `http://localhost:3000`
 - `GET /api/kitchen/orders`
 - `PATCH /api/kitchen/orders/:id/status`
 
+## Entregas (modulo separado)
+
+- `POST /api/delivery/auth/login`
+  - login exclusivo de entregador
+- `GET /api/delivery/orders`
+  - lista apenas pedidos `READY` (disponiveis) e `DISPATCHED` do proprio entregador
+- `PATCH /api/delivery/orders/:id/claim`
+  - assume pedido `READY` e muda para `DISPATCHED`
+- `PATCH /api/delivery/orders/:id/status`
+  - entregue/cancelado pelo entregador
+- `POST /api/delivery/agents`
+  - cria entregador para o tenant (ADMIN/MANAGER)
+
 ## Pedidos e dashboard
 
 - `GET /api/orders`
@@ -77,4 +93,3 @@ Base URL (dev): `http://localhost:3000`
 - Padrao de resposta:
   - `{ "error": "mensagem" }`
 - Falha de banco (`P1001`) retorna `503` nas rotas principais.
-

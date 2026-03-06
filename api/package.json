@@ -1,6 +1,6 @@
 {
   "name": "cheio-gestor-api",
-  "version": "5.0.0-alpha",
+  "version": "6.0.0",
   "private": true,
   "main": "src/server.js",
   "scripts": {
